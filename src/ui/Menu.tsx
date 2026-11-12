@@ -6,6 +6,7 @@ import { ASCENSION_RULES, type Game, type RunState, type Settings } from '../eng
 import { ACHIEVEMENTS, allCards, characterUnlocked, type Leitner, type Meta, notionStats, type Unlocks } from '../engine/meta';
 import { answerText, isChoice } from '../engine/questions';
 import { cleanSeed } from '../engine/rng';
+import { describeSettings, parseClassLink } from '../engine/classCode';
 import type { Content } from '../engine/schema';
 import { fillBlanks } from '../engine/answer';
 import { AVATARS, type Profile } from '../profiles';
@@ -116,13 +117,16 @@ export function ProfileScreen({ list, current, onPick, onCreate, onDelete, onBac
 
 /* ======================= Accueil ======================= */
 
-export function Title({ content, profile, meta, saved, settings, onSettings, onStart, onResume, onNav, initialSeed }: {
+export function Title({ content, profile, meta, saved, settings, onSettings, onStart, onResume, onNav, initialSeed, classe, onClassCode, onClearClass }: {
   content: Content; profile: Profile; meta: Meta; saved: RunState | null; settings: Settings;
   onSettings: (s: Settings) => void; onStart: (o: { seed: string; character: string; ascension: number }) => void; onResume: () => void;
-  onNav: (screen: 'profiles' | 'collection' | 'achievements' | 'carnet') => void; initialSeed: string;
+  onNav: (screen: 'profiles' | 'collection' | 'achievements' | 'carnet' | 'prof') => void; initialSeed: string;
+  classe: { code: string; seed: string } | null; onClassCode: (code: string) => string | null; onClearClass: () => void;
 }) {
   const seq = content.sequence;
   const [seed, setSeed] = useState(initialSeed);
+  const [classInput, setClassInput] = useState('');
+  const [classErr, setClassErr] = useState<string | null>(null);
   const chars = seq.characters;
   const [character, setCharacter] = useState(() => (chars.find(c => characterUnlocked(content, meta, c.id) && c.id === localPick()) ?? chars[0]).id);
   const [asc, setAsc] = useState(Math.min(meta.maxAscension, Number(localAsc()) || 0));
@@ -182,6 +186,37 @@ export function Title({ content, profile, meta, saved, settings, onSettings, onS
         })}
       </div>
 
+      <div class="opciones clase">
+        {classe ? (
+          <>
+            <span>
+              <b>Réglages de la classe</b>{classe.code ? ` (code ${classe.code})` : ''} : {describeSettings(settings, seq).join(' · ')}
+              {classe.seed ? ` · défi ${classe.seed}` : ''}
+            </span>
+            <button class="link" onClick={onClearClass}>Retirer</button>
+          </>
+        ) : (
+          <form
+            class="fila"
+            onSubmit={e => {
+              e.preventDefault();
+              const err = onClassCode(classInput);
+              setClassErr(err);
+              if (!err) {
+                const l = parseClassLink(classInput);
+                if (l?.seed) setSeed(l.seed);
+                setClassInput('');
+              }
+            }}
+          >
+            <label for="code-classe">Code de classe</label>
+            <input id="code-classe" type="text" value={classInput} maxLength={40} placeholder="donné par ton professeur" onInput={e => setClassInput((e.target as HTMLInputElement).value)} autocomplete="off" />
+            <button class="btn sec" type="submit" disabled={!classInput.trim()}>Valider</button>
+            {classErr && <span class="error" role="alert">{classErr}</span>}
+          </form>
+        )}
+      </div>
+
       <div class="opciones">
         <label class="nivel">
           <span>Nivel de Calavera</span>
@@ -234,6 +269,9 @@ export function Title({ content, profile, meta, saved, settings, onSettings, onS
           <b>Collectionne</b>Chaque ennemi vaincu et chaque objet trouvé t'offre une carte de lotería.
         </div>
       </div>
+      <p class="pie-prof">
+        <button class="link" onClick={() => onNav('prof')}>Espace professeur</button>
+      </p>
     </section>
   );
 }

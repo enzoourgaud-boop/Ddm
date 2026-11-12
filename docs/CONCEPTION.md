@@ -260,3 +260,9 @@ Toutes les options par défaut ont été retenues :
 - 19 succès, 10 niveaux de Calavera (règles cumulatives listées sur l'écran d'accueil).
 - Leitner : boîtes 1 à 5 ; poids de tirage 6 (boîte 1) à 1 (boîte 5), 4 pour une question jamais vue.
 - Code de fin : 19 caractères (alphabet de Crockford, somme de contrôle), QR généré sur l'appareil.
+
+### Ajustements faits pendant l'étape 5
+- Le « lien de classe » est un code de 6 caractères (thèmes, types, chrono, part d'écrit, accents + somme de contrôle), utilisable en lien `#classe-XXXXXX[-GRAINE]`, en QR code ou tapé à la main sur l'accueil.
+- Les modifications du professeur sont une couche à part (`prof:overlay` dans le stockage local) : la banque d'origine n'est jamais écrasée, et un bouton permet toujours de revenir en arrière (même si le contenu devenait invalide).
+- CSV : une ligne par question ; listes séparées par « | » ; colonne « avance » en JSON pour les types ordre / association / scène.
+- Une séquence complète peut être exportée et importée (« pack ») : le moteur ne contient rien de propre au Día de Muertos.

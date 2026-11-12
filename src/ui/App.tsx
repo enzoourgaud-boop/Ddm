@@ -1,6 +1,9 @@
 /** Racine : chargement du contenu, profils, sauvegarde, révision de Leitner, aiguillage des écrans. */
 import { useEffect, useMemo, useRef, useState } from 'preact/hooks';
-import { loadContent } from '../content/load';
+import { loadActiveContent } from '../content/load';
+import { emptyOverlay, teacher } from '../content/teacher';
+import { decodeClass, parseClassLink } from '../engine/classCode';
+import type { Content } from '../engine/schema';
 import { DEFAULT_SETTINGS, Game, type RunState, type Settings } from '../engine/game';
 import { applyRun, type Leitner, leitnerUpdate, leitnerWeight, type Meta, type Unlocks } from '../engine/meta';
 import { randomSeed } from '../engine/rng';
@@ -11,9 +14,9 @@ import { PapelPicado, useGame } from './components';
 import { AchievementsScreen, CarnetScreen, CollectionScreen, Over, ProfileScreen, Title } from './Menu';
 import { ChestScreen, EventScreen, MapScreen, RestScreen } from './Rooms';
 import { Reward, Shop } from './screens';
+import { TeacherSpace } from './Teacher';
 import { Transition } from './Transition';
 
-const loaded = loadContent();
 
 function loadSettings(): Settings {
   return { ...DEFAULT_SETTINGS, ...storage.get<Partial<Settings>>('settings', {}) };
@@ -28,39 +31,69 @@ function urlSeed(): string {
 }
 
 export function App() {
-  const { content, issues } = loaded;
+  const [active, setActive] = useState(loadActiveContent);
+  const reload = () => setActive(loadActiveContent());
+  const { content, issues } = active;
   if (!content) {
     return (
-      <section class="screen">
-        <h1>Contenu invalide</h1>
-        <p>Le jeu ne peut pas démarrer : les fichiers de contenu contiennent des erreurs.</p>
-        <ul>
-          {issues.filter(i => i.level === 'erreur').slice(0, 30).map((i, k) => (
-            <li key={k}>
-              <b>{i.where}</b> : {i.message}
-            </li>
-          ))}
-        </ul>
-      </section>
+      <main id="app">
+        <section class="screen">
+          <h1>Contenu invalide</h1>
+          <p>Le jeu ne peut pas démarrer : les fichiers de contenu contiennent des erreurs.</p>
+          <ul>
+            {issues.filter(i => i.level === 'erreur').slice(0, 30).map((i, k) => (
+              <li key={k}>
+                <b>{i.where}</b> : {i.message}
+              </li>
+            ))}
+          </ul>
+          <p>
+            <button class="btn" onClick={() => { teacher.saveOverlay(emptyOverlay()); teacher.savePack(null); reload(); }}>
+              Annuler les modifications du professeur sur cet appareil
+            </button>
+          </p>
+        </section>
+      </main>
     );
   }
-  return <Main content={content} />;
+  return <Main content={content} fromPack={active.fromPack} reload={reload} />;
 }
 
-type MenuScreen = 'title' | 'profiles' | 'collection' | 'achievements' | 'carnet';
+type MenuScreen = 'title' | 'profiles' | 'collection' | 'achievements' | 'carnet' | 'prof';
 
-function Main({ content }: { content: NonNullable<typeof loaded.content> }) {
-  const [settings, setSettingsState] = useState(loadSettings);
+/** Réglages venus d'un lien de classe (#classe-XXXXXX), appliqués au démarrage. */
+function classFromHash(content: Content): { settings: Partial<Settings>; seed: string; code: string } | null {
+  try {
+    const l = parseClassLink(location.hash);
+    if (!l || !location.hash.startsWith('#classe-')) return null;
+    const d = decodeClass(l.code, content.sequence);
+    return d ? { settings: d, seed: l.seed, code: l.code } : null;
+  } catch {
+    return null;
+  }
+}
+
+function Main({ content, fromPack, reload }: { content: Content; fromPack: boolean; reload: () => void }) {
+  const fromLink = useMemo(() => classFromHash(content), []);
+  const [settings, setSettingsState] = useState<Settings>(() => {
+    const base = loadSettings();
+    if (!fromLink) return base;
+    const s = { ...DEFAULT_SETTINGS, ...fromLink.settings };
+    storage.set('settings', s);
+    storage.set('classe', { code: fromLink.code, seed: fromLink.seed });
+    return s;
+  });
+  const [classe, setClasse] = useState(() => storage.get<{ code: string; seed: string } | null>('classe', null));
   const [profile, setProfile] = useState<Profile | null>(() => profiles.current());
   const [list, setList] = useState(() => profiles.list());
   const [meta, setMeta] = useState<Meta | null>(() => (profile ? profiles.meta(profile.id) : null));
   const leitner = useRef<Leitner>(profile ? profiles.leitner(profile.id) : {});
   const [saved, setSaved] = useState<RunState | null>(() => (profile ? profiles.run(profile.id) : null));
   const [game, setGame] = useState<Game | null>(null);
-  const [menu, setMenu] = useState<MenuScreen>('title');
+  const [menu, setMenu] = useState<MenuScreen>(() => (typeof location !== 'undefined' && location.hash === '#prof' ? 'prof' : 'title'));
   const [unlocks, setUnlocks] = useState<Unlocks | null>(null);
   const [persistent, setPersistent] = useState(storage.persistent);
-  const initialSeed = useMemo(urlSeed, []);
+  const initialSeed = useMemo(() => urlSeed() || fromLink?.seed || classe?.seed || '', []);
   useGame(game);
 
   useEffect(() => storage.onFailure(() => setPersistent(false)) as () => void, []);
@@ -116,6 +149,22 @@ function Main({ content }: { content: NonNullable<typeof loaded.content> }) {
     setSettingsState(s);
     storage.set('settings', s);
   };
+  /** Code de classe saisi par l'élève. Renvoie un message d'erreur, ou null. */
+  const applyClassCode = (raw: string): string | null => {
+    const l = parseClassLink(raw);
+    const d = l && decodeClass(l.code, content.sequence);
+    if (!l || !d) return 'Code de classe inconnu : vérifie les 6 caractères.';
+    setSettings({ ...DEFAULT_SETTINGS, ...d });
+    const c = { code: l.code, seed: l.seed };
+    storage.set('classe', c);
+    setClasse(c);
+    return null;
+  };
+  const clearClass = () => {
+    setSettings({ ...DEFAULT_SETTINGS });
+    storage.remove('classe');
+    setClasse(null);
+  };
   const start = (o: { seed: string; character: string; ascension: number }) => {
     if (!profile) return;
     const g = attach(Game.newRun(content, settings, o.seed || randomSeed(), Date.now(), { character: o.character, ascension: o.ascension }));
@@ -140,6 +189,32 @@ function Main({ content }: { content: NonNullable<typeof loaded.content> }) {
     setGame(null);
     setMenu('title');
   };
+
+  if (menu === 'prof') {
+    return (
+      <>
+        <PapelPicado />
+        <main id="app">
+          <TeacherSpace
+            content={content}
+            fromPack={fromPack}
+            settings={settings}
+            onApplySettings={(s, seed) => {
+              setSettings(s);
+              const c = { code: '', seed };
+              storage.set('classe', c);
+              setClasse(c);
+            }}
+            onReload={reload}
+            onBack={() => {
+              if (location.hash === '#prof') history.replaceState(null, '', location.pathname + location.search);
+              setMenu('title');
+            }}
+          />
+        </main>
+      </>
+    );
+  }
 
   // pas encore de profil : on en crée un
   if (!profile || !meta || menu === 'profiles') {
@@ -190,6 +265,9 @@ function Main({ content }: { content: NonNullable<typeof loaded.content> }) {
             onResume={resume}
             onNav={m => setMenu(m)}
             initialSeed={initialSeed}
+            classe={classe}
+            onClassCode={applyClassCode}
+            onClearClass={clearClass}
           />
         )}
         {!game && menu === 'collection' && <CollectionScreen content={content} meta={meta} onBack={() => setMenu('title')} />}

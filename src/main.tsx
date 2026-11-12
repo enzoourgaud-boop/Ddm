@@ -9,6 +9,7 @@ import './styles/main.css';
 import './styles/battle.css';
 import './styles/boards.css';
 import './styles/menu.css';
+import './styles/teacher.css';
 import { App } from './ui/App';
 
 render(<App />, document.getElementById('root')!);
