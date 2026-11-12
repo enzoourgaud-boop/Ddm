@@ -1,0 +1,18 @@
+[
+  { "id": "traductor", "kind": "aide", "rarity": "comun", "name": "Traductor", "emoji": "📖", "price": 4, "effect": "translate", "description": "Traduit la question en français." },
+  { "id": "chuleta", "kind": "aide", "rarity": "comun", "name": "Chuleta", "emoji": "📜", "price": 3, "effect": "hint", "description": "L'antisèche : montre la règle, ou la première lettre et la longueur du mot." },
+  { "id": "tijeras", "kind": "aide", "rarity": "comun", "name": "Tijeras", "emoji": "✂️", "price": 4, "effect": "scissors", "description": "Retire deux mauvaises réponses. À l'écrit, dévoile une lettre sur deux." },
+  { "id": "oraculo", "kind": "aide", "rarity": "rara", "name": "Oráculo", "emoji": "🔮", "price": 7, "effect": "oracle", "description": "Donne la bonne réponse (et frappe l'ennemi)." },
+  { "id": "cambio", "kind": "aide", "rarity": "comun", "name": "Cambio", "emoji": "🔁", "price": 3, "effect": "swap", "description": "Change de question sans pénalité." },
+  { "id": "reloj", "kind": "aide", "rarity": "comun", "name": "Reloj de arena", "emoji": "⏳", "price": 3, "effect": "time", "value": 15, "description": "Ajoute 15 secondes au chrono de la question." },
+  { "id": "chocolate", "kind": "aide", "rarity": "comun", "name": "Chocolate", "emoji": "☕", "price": 5, "effect": "heal", "value": 5, "description": "Un chocolat chaud qui rend 5 points de vie." },
+  { "id": "escudo", "kind": "aide", "rarity": "rara", "name": "Escudo", "emoji": "🛡️", "price": 5, "effect": "autoShield", "auto": true, "description": "Bloque tout seul la prochaine attaque." },
+
+  { "id": "vela", "kind": "reliquia", "rarity": "rara", "name": "Vela", "emoji": "🕯️", "price": 12, "max": 2, "effect": "damageBonus", "value": 1, "description": "+1 dégât à chaque bonne réponse." },
+  { "id": "pluma", "kind": "reliquia", "rarity": "comun", "name": "Pluma", "emoji": "✒️", "price": 9, "max": 1, "effect": "writeBonus", "value": 1, "description": "Les réponses écrites font +1 dégât de plus." },
+  { "id": "maracas", "kind": "reliquia", "rarity": "rara", "name": "Maracas", "emoji": "🪇", "price": 10, "max": 1, "effect": "streakMaster", "description": "Le bonus de série démarre dès 2 bonnes réponses et vaut +2." },
+  { "id": "corazon", "kind": "reliquia", "rarity": "comun", "name": "Corazón", "emoji": "❤️", "price": 8, "max": 3, "effect": "maxHp", "value": 4, "description": "+4 points de vie maximum." },
+  { "id": "pinata", "kind": "reliquia", "rarity": "comun", "name": "Piñata", "emoji": "🪅", "price": 8, "max": 1, "effect": "goldPerCorrect", "value": 1, "description": "+1 moneda par bonne réponse." },
+  { "id": "cempasuchil", "kind": "reliquia", "rarity": "comun", "name": "Cempasúchil", "emoji": "🌼", "price": 9, "max": 1, "effect": "healAfterFight", "value": 2, "description": "+2 points de vie après chaque combat." },
+  { "id": "tilde", "kind": "reliquia", "rarity": "rara", "name": "Tilde amable", "emoji": "✨", "price": 8, "max": 1, "effect": "accentForgive", "description": "Un accent oublié à l'écrit est pardonné." }
+]

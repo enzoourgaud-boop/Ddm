@@ -1,0 +1,222 @@
+{
+  "id": "dia-de-muertos",
+  "title": "El Camino de Cempasúchil",
+  "tagline": "Roguelike d'espagnol · séquence Día de Muertos",
+  "intro": "C'est la nuit du 1er au 2 novembre. Suis les pétales de cempasúchil du marché jusqu'au Mictlán et réponds en espagnol pour vaincre les créatures du chemin. Au bout t'attend la Catrina, la plus redoutable de toutes.",
+  "victory": "Tu as vaincu la Catrina. Les âmes ont retrouvé le chemin de la ofrenda grâce à toi.",
+  "defeatTitle": "¡Hasta el año que viene!",
+  "victoryTitle": "¡Felicidades!",
+  "voices": [
+    "es-MX",
+    "es-US",
+    "es-ES",
+    "es"
+  ],
+  "themes": [
+    {
+      "id": "vocabulario",
+      "label": "Vocabulario",
+      "color": "#22d1c6",
+      "translationOptional": true,
+      "check": {
+        "ignoreArticles": true
+      }
+    },
+    {
+      "id": "conjugacion",
+      "label": "Conjugación",
+      "color": "#ff9f1c"
+    },
+    {
+      "id": "gramatica",
+      "label": "Gramática",
+      "color": "#9b6cff"
+    },
+    {
+      "id": "cultura",
+      "label": "Cultura",
+      "color": "#ff3d8b"
+    }
+  ],
+  "notions": [
+    {
+      "id": "voc-elementos",
+      "label": "Vocabulaire : les éléments du Día de Muertos"
+    },
+    {
+      "id": "voc-fiesta",
+      "label": "Vocabulaire : la fête et ses actions"
+    },
+    {
+      "id": "voc-imagen",
+      "label": "Vocabulaire : décrire une image"
+    },
+    {
+      "id": "estar-presente",
+      "label": "Conjugaison d'ESTAR au présent"
+    },
+    {
+      "id": "gerundio-regular",
+      "label": "Gérondif régulier (-ando, -iendo)"
+    },
+    {
+      "id": "gerundio-irregular",
+      "label": "Gérondif irrégulier (e→i, o→u, -yendo)"
+    },
+    {
+      "id": "estar-gerundio",
+      "label": "ESTAR + gérondif"
+    },
+    {
+      "id": "ser-estar-hay",
+      "label": "SER / ESTAR / HAY"
+    },
+    {
+      "id": "describir-imagen",
+      "label": "Situer dans une image (a la izquierda, en primer plano…)"
+    },
+    {
+      "id": "cultura-fiesta",
+      "label": "Culture : la fête et ses origines"
+    },
+    {
+      "id": "cultura-cementerios",
+      "label": "Culture : cimetières, ofrenda, déguisements"
+    },
+    {
+      "id": "cultura-catrina",
+      "label": "Culture : la Catrina"
+    },
+    {
+      "id": "cultura-otros",
+      "label": "Culture : compléments (à vérifier)"
+    }
+  ],
+  "sources": [
+    {
+      "id": "texto-ce",
+      "title": "DDM CE - Texto (compréhension écrite)",
+      "file": "sources/DDM CE - Texto.pdf"
+    },
+    {
+      "id": "p2-cementerios",
+      "title": "P2 - Cementerios y disfraces",
+      "file": "sources/P2 - Cementerios y disfraces.pdf"
+    },
+    {
+      "id": "p3-catrina",
+      "title": "P3 - La Catrina",
+      "file": "sources/P3 - La Catrina.pdf"
+    },
+    {
+      "id": "p4-comprension",
+      "title": "P4 - Comprensión lectora",
+      "file": "sources/P4 - Comprension lectora.pdf"
+    },
+    {
+      "id": "elementos",
+      "title": "Los elementos del Día de Muertos",
+      "file": "sources/elementos ddm.pdf"
+    },
+    {
+      "id": "doc1-cortometraje",
+      "title": "Doc1 - Cortometraje intro (autel)",
+      "file": "sources/Doc1 Cortometraje intro.pdf"
+    },
+    {
+      "id": "cartel-descripcion",
+      "title": "Descripción de imagen (outils de description)",
+      "file": "sources/Correction de Cartel Coco.pdf"
+    },
+    {
+      "id": "estar-gerundio",
+      "title": "ESTAR + GERUNDIO",
+      "file": "sources/estar gerondif.pdf"
+    },
+    {
+      "id": "prototipo",
+      "title": "Prototype du jeu (hors documents : à vérifier)",
+      "file": "docs/reference/prototype-camino-cempasuchil.html"
+    }
+  ],
+  "player": {
+    "hp": 15,
+    "startItems": {
+      "traductor": 1,
+      "tijeras": 1,
+      "chuleta": 1
+    }
+  },
+  "acts": [
+    {
+      "id": "mercado",
+      "name": "El Mercado",
+      "color": "#ff9f1c",
+      "level": 1,
+      "chrono": 30,
+      "writeShare": 0.15,
+      "enemies": [
+        "vela-traviesa",
+        "calaverita",
+        "pan-de-muerto",
+        "papel-picado"
+      ],
+      "elites": [
+        "pinata-furiosa"
+      ],
+      "boss": "alebrije"
+    },
+    {
+      "id": "panteon",
+      "name": "El Panteón",
+      "color": "#22d1c6",
+      "level": 2,
+      "chrono": 25,
+      "writeShare": 0.3,
+      "enemies": [
+        "xoloitzcuintle",
+        "lechuza",
+        "esqueleto-musico",
+        "cruz-florida"
+      ],
+      "elites": [
+        "mariachi-de-huesos"
+      ],
+      "boss": "mictlantecuhtli"
+    },
+    {
+      "id": "mictlan",
+      "name": "El Mictlán",
+      "color": "#9b6cff",
+      "level": 3,
+      "chrono": 20,
+      "writeShare": 0.45,
+      "enemies": [
+        "alma-errante",
+        "mariposa-negra",
+        "serpiente"
+      ],
+      "elites": [
+        "jaguar-obsidiana"
+      ],
+      "boss": "catrina"
+    }
+  ],
+  "feedback": {
+    "ok": [
+      "¡Muy bien!",
+      "¡Perfecto!",
+      "¡Órale!",
+      "¡Eso es!",
+      "¡Qué padre!"
+    ],
+    "ko": [
+      "¡Ay, caramba!",
+      "¡Qué pena!",
+      "¡Uy!"
+    ],
+    "casi": "¡Casi!",
+    "timeout": "¡Se acabó el tiempo!",
+    "oracle": "El Oráculo ha hablado"
+  }
+}
