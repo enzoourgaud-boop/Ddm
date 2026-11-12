@@ -98,6 +98,25 @@ describe('moteur de partie', () => {
     }
   });
 
+  it('les questions désactivées ne sont jamais posées', () => {
+    const disabled = new Set(content().questions.filter(q => q.disabled).map(q => q.id));
+    expect(disabled.size).toBeGreaterThan(0);
+    for (let i = 0; i < 30; i++) {
+      const g = Game.newRun(content(), { ...S, themes: ['cultura'] }, `DIS-${i}`);
+      for (let k = 0; k < 60 && g.state.screen !== 'over'; k++) {
+        const s = g.state;
+        if (s.screen === 'combat') {
+          if (s.combat!.fb) g.proceed();
+          else {
+            expect(disabled.has(g.question!.id)).toBe(false);
+            g.answer(k % 3 ? g.question!.answer : 'zzz');
+          }
+        } else if (s.screen === 'reward') g.take(0);
+        else if (s.screen === 'shop') g.leaveShop();
+      }
+    }
+  });
+
   it('l’Oráculo donne la réponse et blesse l’ennemi', () => {
     const g = Game.newRun(content(), S, 'ORA-1');
     g.state.inv.oraculo = 1;
