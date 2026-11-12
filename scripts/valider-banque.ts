@@ -23,8 +23,9 @@ for (const id of listSequences()) {
   errors += issues.filter(i => i.level === 'erreur').length;
   if (!content) continue;
 
-  const qs = content.questions;
-  console.log(`\n  ${qs.length} questions valides`);
+  const off = content.questions.filter(q => q.disabled);
+  const qs = content.questions.filter(q => !q.disabled);
+  console.log(`\n  ${qs.length} questions actives${off.length ? ` (+ ${off.length} désactivée${off.length > 1 ? 's' : ''} : ${off.map(q => q.id).join(', ')})` : ''}`);
   const themes = content.sequence.themes.map(t => t.id);
   const pad = (s: string | number, n: number) => String(s).padStart(n);
   console.log(`  ${'thème'.padEnd(14)} ${pad('niv.1', 6)} ${pad('niv.2', 6)} ${pad('niv.3', 6)} ${pad('jefe', 6)} ${pad('total', 6)}`);
