@@ -23,6 +23,7 @@ export function readSequence(id: string): RawContent {
     items: readJson(join(dir, 'items.json')),
     events: existsSync(join(dir, 'events.json')) ? readJson(join(dir, 'events.json')) : [],
     synergies: existsSync(join(dir, 'synergies.json')) ? readJson(join(dir, 'synergies.json')) : [],
+    scenes: existsSync(join(dir, 'scenes.json')) ? readJson(join(dir, 'scenes.json')) : { decors: [], objects: [] },
     questions: readdirSync(qdir)
       .filter(f => f.endsWith('.json'))
       .sort()

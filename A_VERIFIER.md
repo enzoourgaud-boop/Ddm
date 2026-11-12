@@ -70,3 +70,24 @@ Ce sont 13 petites scènes **inventées** en espagnol A1, sans affirmation cultu
 - ☐ Incienso (aide), Pan de muerto, Trompeta, Diccionario de bolsillo, Mapa de pétalos, Pluma de colibrí, Reloj de sol, Máscara, Calavera de la suerte, Lotería (reliques). Ce sont des noms d'objets, sans affirmation culturelle.
 - ☐ Ensemble « Ofrenda completa » (Vela + Cempasúchil + Pan de muerto) : il associe trois éléments de l'ofrenda vus en classe.
 - ☐ Ensemble « Mariachi » (Maracas + Trompeta) : le mot apparaissait déjà dans le décor validé.
+
+## 7. Ajouts de l'étape 3 (à relire)
+
+### Vrai / faux (`questions/vrai-faux.json`, 36 affirmations)
+Toutes viennent de tes documents (texte, P2, P3, fiche ESTAR + GERUNDIO, outils de description). Les affirmations fausses sont fabriquées pour être réfutées. Exemples : « La Catrina fue creada por Frida Kahlo » (falso) ; « Los disfraces típicos son princesas y piratas » (falso).
+- ☐ Vérifie que chaque affirmation **vraie** est bien formulée comme dans tes documents.
+
+### Compréhension orale (`questions/ecoute.json`, 30 questions)
+- ☐ Les distracteurs « qui sonnent pareil » sont des mots **hors séquence**, choisis pour leur son (la cara, la caravana, la cadena, la bella, la tuba, la rumba, el escritorio, el delfín, la oferta, la merienda, el silencio, la avenida, el comentario, la maraca, la posada…). Ils ne sont jamais la bonne réponse.
+- ☐ Les 6 questions orales de culture reprennent les questions de compréhension du texte (P4).
+
+### Scènes (`scenes.json`, `questions/escenas.json`)
+- ☐ Deux décors originaux : **une ofrenda à deux étages** (arriba / abajo × a la izquierda / en el centro / a la derecha) et **un cimetière en trois plans** (en el fondo / en segundo plano / en primer plano). Aucune image du court-métrage ni de l'affiche.
+- ☐ Objets placés : vela, foto, calavera, flor, pan de muerto, frutas, cruz, tumba, esqueleto, guitarra, alebrije, mariposa, niño, mujer.
+- ☐ Pour « Place les objets », les consignes mélangent « X está arriba, a la izquierda » (ESTAR + el/la) et « En el fondo, a la derecha, hay una cruz » (HAY + un/una), comme dans ta fiche de description.
+
+### Associer mot et image (`questions/association.json`)
+- ☐ Images (emoji) discutables à vérifier : ✏️ pour « el caricaturista », 🎭 pour « el disfraz », 🕊️ pour « volar », 😐 pour « serio ».
+
+### Remettre dans l'ordre (`questions/ordre.json`, 24 phrases)
+- ☐ Phrases reprises du texte, de P2, de P3, de la fiche ESTAR + GERUNDIO et des outils de description. Certaines contiennent une étiquette piège (ex. « leiendo » à côté de « leyendo »).

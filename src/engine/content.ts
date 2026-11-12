@@ -1,8 +1,9 @@
 /** Validation et contrôles de cohérence du contenu, partagés par le jeu et le script `npm run valider`. */
 import {
-  type Content, EnemySchema, EventSchema, ItemSchema, QuestionSchema, SequenceSchema, SynergySchema, type EventOutcome, type Question,
+  type Content, EnemySchema, EventSchema, ItemSchema, QuestionSchema, ScenesSchema, SequenceSchema, SynergySchema, type EventOutcome, type Question,
 } from './schema';
 import { normalize } from './answer';
+import { isChoice, orderTokens } from './questions';
 import { z } from 'zod';
 
 export interface Issue {
@@ -22,6 +23,7 @@ export interface RawContent {
   items: unknown;
   events: unknown;
   synergies: unknown;
+  scenes: unknown;
 }
 
 /** Valide le contenu brut. Les questions invalides sont écartées (le jeu reste jouable), mais signalées. */
@@ -37,6 +39,8 @@ export function parseContent(raw: RawContent): { content: Content | null; issues
   if (!events.success) issues.push(...zodIssues('events.json', events.error));
   const synergies = z.array(SynergySchema).safeParse(raw.synergies ?? []);
   if (!synergies.success) issues.push(...zodIssues('synergies.json', synergies.error));
+  const scenes = ScenesSchema.safeParse(raw.scenes ?? { decors: [], objects: [] });
+  if (!scenes.success) issues.push(...zodIssues('scenes.json', scenes.error));
 
   const questions: Question[] = [];
   for (const { file, data } of raw.questions) {
@@ -51,9 +55,9 @@ export function parseContent(raw: RawContent): { content: Content | null; issues
       else issues.push(...zodIssues(`${file} › ${id}`, r.error));
     });
   }
-  if (!seq.success || !enemies.success || !items.success || !events.success || !synergies.success) return { content: null, issues };
+  if (!seq.success || !enemies.success || !items.success || !events.success || !synergies.success || !scenes.success) return { content: null, issues };
   const content: Content = {
-    sequence: seq.data, enemies: enemies.data, items: items.data, questions, events: events.data, synergies: synergies.data,
+    sequence: seq.data, enemies: enemies.data, items: items.data, questions, events: events.data, synergies: synergies.data, scenes: scenes.data,
   };
   issues.push(...checkCoherence(content));
   return { content, issues };
@@ -77,7 +81,13 @@ export function checkCoherence(c: Content): Issue[] {
   for (const q of c.questions) {
     const w = `question ${q.id}`;
     ids.set(q.id, (ids.get(q.id) ?? 0) + 1);
-    const key = normalize(`${q.label ?? ''} ${q.prompt}`);
+    // ce qui rend une question unique : l'énoncé, et selon le type la phrase entendue, les paires ou la scène
+    const extra =
+      q.type === 'ecoute' ? q.say ?? q.answer
+      : q.type === 'association' ? JSON.stringify(q.pairs)
+      : q.type === 'scene' || (q.type === 'qcm' && q.scene) ? JSON.stringify(q.scene)
+      : '';
+    const key = normalize(`${q.label ?? ''} ${q.prompt}`) + '¦' + extra;
     const prev = prompts.get(key);
     if (prev && prev !== q.id) err(w, `même énoncé que la question ${prev}`);
     else prompts.set(key, q.id);
@@ -87,16 +97,46 @@ export function checkCoherence(c: Content): Issue[] {
     for (const n of q.notions) if (!notions.has(n)) err(w, `notion inconnue « ${n} » (à déclarer dans sequence.json)`);
     if (!sources.has(q.source)) err(w, `source inconnue « ${q.source} » (à déclarer dans sequence.json)`);
 
-    const goods = [q.answer, ...q.accept].map(normalize);
-    const ds = q.distractors.map(normalize);
-    ds.forEach((d, i) => {
-      if (goods.includes(d)) err(w, `le distracteur « ${q.distractors[i]} » est une bonne réponse`);
-      if (ds.indexOf(d) !== i) err(w, `le distracteur « ${q.distractors[i]} » apparaît deux fois`);
-    });
-    if (q.prompt.includes('___')) {
-      const holes = q.prompt.split('___').length - 1;
-      const parts = q.answer.split(' / ').length;
-      if (holes !== parts) err(w, `${holes} trou(s) ___ dans l'énoncé mais ${parts} partie(s) dans la réponse (séparer par « / »)`);
+    if (isChoice(q)) {
+      const goods = [q.answer, ...q.accept].map(normalize);
+      const ds = q.distractors.map(normalize);
+      ds.forEach((d, i) => {
+        if (goods.includes(d)) err(w, `le distracteur « ${q.distractors[i]} » est une bonne réponse`);
+        if (ds.indexOf(d) !== i) err(w, `le distracteur « ${q.distractors[i]} » apparaît deux fois`);
+      });
+      if (q.prompt.includes('___')) {
+        const holes = q.prompt.split('___').length - 1;
+        const parts = q.answer.split(' / ').length;
+        if (holes !== parts) err(w, `${holes} trou(s) ___ dans l'énoncé mais ${parts} partie(s) dans la réponse (séparer par « / »)`);
+      }
+    }
+    if (q.type === 'ordre') {
+      const toks = orderTokens(q);
+      if (normalize(toks.join(' ')) !== normalize(q.answer)) err(w, `les étiquettes « ${toks.join(' | ')} » ne recomposent pas la réponse`);
+      if (toks.length < 3) warn(w, 'moins de 3 étiquettes : trop facile');
+      for (const x of q.extra) if (toks.map(normalize).includes(normalize(x))) err(w, `l'étiquette piège « ${x} » fait partie de la réponse`);
+    }
+    if (q.type === 'association') {
+      const ws = q.pairs.map(p => normalize(p[0])), im = q.pairs.map(p => p[1]);
+      if (new Set(ws).size !== ws.length) err(w, 'un mot apparaît deux fois');
+      if (new Set(im).size !== im.length) err(w, 'une image apparaît deux fois');
+    }
+    const sceneRef = q.type === 'scene' ? q.scene : q.type === 'qcm' ? q.scene : undefined;
+    if (sceneRef) {
+      const d = c.scenes.decors.find(x => x.id === sceneRef.decor);
+      if (!d) err(w, `décor inconnu « ${sceneRef.decor} » (voir scenes.json)`);
+      const cells = new Set<string>();
+      for (const it of sceneRef.items) {
+        if (!c.scenes.objects.some(o => o.id === it.object)) err(w, `objet inconnu « ${it.object} »`);
+        if (d && it.row && !d.rows.some(r => r[0] === it.row)) err(w, `rangée inconnue « ${it.row} »`);
+        if (d && it.col && !d.cols.some(r => r[0] === it.col)) err(w, `colonne inconnue « ${it.col} »`);
+        if (it.row && it.col) {
+          const k = `${it.row}|${it.col}`;
+          if (cells.has(k)) err(w, `deux objets au même endroit (${k})`);
+          cells.add(k);
+        }
+      }
+      if (q.type === 'scene' && new Set(sceneRef.items.map(i => i.object)).size !== sceneRef.items.length) err(w, 'le même objet est placé deux fois');
     }
     if (q.promptLang === 'es' && !q.translation && !theme?.translationOptional) warn(w, 'traduction manquante (le Traductor sera inutilisable)');
   }

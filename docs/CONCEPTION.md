@@ -245,3 +245,11 @@ Toutes les options par défaut ont été retenues :
 - Les noms des salles, leurs textes et le repas du Tianguis sont dans `sequence.json` (`rooms`, `meal`).
 - Coffres : 40 % sont fermés par une question ; une bonne réponse donne une relique rare ou légendaire.
 - Équilibrage (300 parties par profil) : 90 % → 99 % de victoires en 17 min ; 75 % → 59 % en 20 min ; 60 % → atteint l'acte 2 en moyenne.
+
+### Ajustements faits pendant l'étape 3
+- 7 types de questions : `qcm`, `ecrit`, `ecoute`, `vrai-faux`, `ordre`, `association`, `scene`, plus des QCM « lire une scène » (`qcm` + `scene`).
+- Les réponses à manipuler (ordre, association, scène) comptent comme un effort de production : dégâts renforcés, comme l'écrit.
+- La Lechuza a une intention « Canto » : la question suivante est à l'oral.
+- Tijeras donne un indice sur les types sans QCM (début de phrase, une paire, la place d'un objet).
+- Les types peu nombreux dans la banque sortent un peu plus souvent (pondération), pour varier les parties.
+- Sans voix espagnole, la phrase s'affiche 5 secondes, une seconde fois sur demande.

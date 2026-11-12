@@ -16,7 +16,8 @@ describe('banque de questions', () => {
   });
   it('détecte une réponse présente parmi les distracteurs', () => {
     const c = content();
-    const bad = { ...c.questions[0], distractors: [c.questions[0].answer.toUpperCase(), 'x', 'y'] };
+    const q0 = c.questions.find(q => q.type === 'qcm')! as Extract<(typeof c.questions)[number], { type: 'qcm' }>;
+    const bad = { ...q0, distractors: [q0.answer.toUpperCase(), 'x', 'y'] };
     const issues = checkCoherence({ ...c, questions: [bad] });
     expect(issues.some(i => i.message.includes('est une bonne réponse'))).toBe(true);
   });
@@ -34,7 +35,7 @@ describe('banque de questions', () => {
   });
   it('détecte un nombre de trous incohérent', () => {
     const c = content();
-    const q = { ...c.questions.find(x => x.prompt.includes('___'))!, answer: 'a / b / c' };
+    const q = { ...(c.questions.find(x => x.type === 'qcm' && x.prompt.includes('___'))! as Extract<(typeof c.questions)[number], { type: 'qcm' }>), answer: 'a / b / c' };
     expect(checkCoherence({ ...c, questions: [q] }).some(i => i.message.includes('trou'))).toBe(true);
   });
 });

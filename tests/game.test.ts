@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest';
+import { canonicalValue, wrongValue } from '../src/engine/questions';
 import { DEFAULT_SETTINGS, Game } from '../src/engine/game';
 import { content } from './helpers';
 import { simulate } from './sim';
@@ -18,9 +19,9 @@ function autoplay(g: Game, max = 5000, wrong: (k: number) => boolean = () => fal
   let k = 0;
   for (let i = 0; i < max && g.state.screen !== 'over'; i++) {
     const s = g.state;
-    const reply = (id: string, mode: string, options: string[]) => {
+    const reply = (id: string, _mode: string, options: string[]) => {
       const q = g.getQuestion(id)!;
-      return wrong(k++) ? (mode === 'qcm' ? options.find(o => o !== q.answer)! : 'zzz') : q.answer;
+      return wrong(k++) ? wrongValue(q, options) : canonicalValue(q);
     };
     if (s.screen === 'map') g.choose(g.reachable()[0].id);
     else if (s.screen === 'combat') {
@@ -48,7 +49,7 @@ function autoplay(g: Game, max = 5000, wrong: (k: number) => boolean = () => fal
 
 function wrongOf(g: Game) {
   const c = g.state.combat!, q = g.question!;
-  return c.q.mode === 'qcm' ? c.q.options.find(o => o !== q.answer)! : 'zzz';
+  return wrongValue(q, c.q.options);
 }
 
 describe('moteur de partie', () => {
@@ -81,7 +82,7 @@ describe('moteur de partie', () => {
   it('une bonne réponse blesse l’ennemi, une erreur blesse le joueur', () => {
     const g = fight('HIT-1');
     const hp0 = g.state.combat!.hp + g.state.combat!.shield;
-    g.answer(g.question!.answer);
+    g.answer(canonicalValue(g.question!));
     const c = g.state.combat!;
     expect(c.fb!.outcome).toBe('ok');
     expect(c.hp + c.shield).toBeLessThan(hp0);
@@ -96,11 +97,11 @@ describe('moteur de partie', () => {
   it('un accent oublié ne blesse personne', () => {
     // cherche une partie dont une question écrite contient un accent
     for (let i = 0; i < 400; i++) {
-      const g = fight(`CASI-${i}`, { ...S, writeFactor: 10 });
+      const g = fight(`CASI-${i}`, { ...S, writeFactor: 10, types: ["qcm", "ecrit"] });
       const q = g.question!;
-      if (g.state.combat!.q.mode !== 'write' || !/[áéíóú]/.test(q.answer)) continue;
+      if (g.state.combat!.q.mode !== 'write' || !/[áéíóú]/.test(canonicalValue(q))) continue;
       const hp = g.state.hp, ehp = g.state.combat!.hp;
-      g.answer(q.answer.normalize('NFD').replace(/[̀-ͯ]/g, ''));
+      g.answer(canonicalValue(q).normalize('NFD').replace(/[̀-ͯ]/g, ''));
       expect(g.state.combat!.fb!.outcome).toBe('casi');
       expect(g.state.hp).toBe(hp);
       expect(g.state.combat!.hp).toBe(ehp);
@@ -124,9 +125,9 @@ describe('moteur de partie', () => {
     expect(g.state.combat!.fb).toBeNull();
   });
 
-  it('sans écrit, toutes les questions sont en QCM', () => {
+  it('sans écrit, aucune question n’est posée à l’écrit', () => {
     const g = Game.newRun(content(), { ...S, writeFactor: 0 }, 'QCM-1');
-    autoplay(g, 600, () => false, () => expect(g.state.combat!.q.mode).toBe('qcm'));
+    autoplay(g, 600, () => false, () => expect(g.state.combat!.q.mode).not.toBe('write'));
   });
 
   it('les thèmes désactivés ne sont jamais posés', () => {
@@ -153,11 +154,11 @@ describe('moteur de partie', () => {
 
   it('Tijeras retire deux mauvaises réponses en QCM', () => {
     for (let i = 0; i < 50; i++) {
-      const g = fight(`TIJ-${i}`, { ...S, writeFactor: 0 });
+      const g = fight(`TIJ-${i}`, { ...S, writeFactor: 0, types: ['qcm'] });
       expect(g.usePower('tijeras')).toBe(true);
       const c = g.state.combat!;
       expect(c.hidden).toHaveLength(2);
-      expect(c.hidden).not.toContain(g.question!.answer);
+      expect(c.hidden).not.toContain(canonicalValue(g.question!));
       return;
     }
   });
@@ -179,7 +180,7 @@ describe('moteur de partie', () => {
         continue;
       }
       expect(g.state.combat!.q.mode).toBe('write');
-      g.answer(g.question!.answer);
+      g.answer(canonicalValue(g.question!));
     }
   });
 
@@ -189,7 +190,7 @@ describe('moteur de partie', () => {
     for (let i = 0; i < 80 && g.state.screen === 'combat'; i++) {
       seen.add(g.state.combat!.phase);
       if (g.state.combat!.fb) g.proceed();
-      else g.answer(g.question!.answer);
+      else g.answer(canonicalValue(g.question!));
     }
     expect([...seen].sort()).toEqual([0, 1, 2]);
     expect(g.state.result).toBe('win');
@@ -201,7 +202,7 @@ describe('moteur de partie', () => {
     expect(c.abanico).toBeGreaterThan(0);
     if (c.q.mode === 'qcm') {
       const hp = c.hp + c.shield;
-      g.answer(g.question!.answer);
+      g.answer(canonicalValue(g.question!));
       expect(c.hp + c.shield).toBe(hp);
     }
   });

@@ -179,7 +179,7 @@ export function EventScreen({ game }: { game: Game }) {
         </div>
       )}
 
-      {st.quiz && q && <QuizView q={q} asked={st.quiz.q} fb={st.quiz.fb} onAnswer={v => game.eventAnswer(v)} />}
+      {st.quiz && q && <QuizView q={q} asked={st.quiz.q} fb={st.quiz.fb} onAnswer={v => game.eventAnswer(v)} scenes={game.content.scenes} voices={game.content.sequence.voices} />}
 
       {st.result && <Result r={st.result} onNext={() => game.eventContinue()} label={st.pendingFight ? 'Se battre !' : 'Continuer le chemin'} />}
       <Powers game={game} inCombat={false} />
@@ -279,7 +279,7 @@ export function ChestScreen({ game }: { game: Game }) {
           </button>
         </div>
       )}
-      {ch.quiz && q && <QuizView q={q} asked={ch.quiz.q} fb={ch.quiz.fb} onAnswer={v => game.chestAnswer(v)} />}
+      {ch.quiz && q && <QuizView q={q} asked={ch.quiz.q} fb={ch.quiz.fb} onAnswer={v => game.chestAnswer(v)} scenes={game.content.scenes} voices={game.content.sequence.voices} />}
       {ch.result && <Result r={ch.result} onNext={() => game.roomContinue()} label="Continuer le chemin" />}
       <Powers game={game} inCombat={false} />
     </section>

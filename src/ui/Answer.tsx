@@ -2,17 +2,19 @@
 import type { ComponentChildren } from 'preact';
 import { useEffect, useRef, useState } from 'preact/hooks';
 import type { Asked } from '../engine/game';
-import type { Question } from '../engine/schema';
+import { answerText, givenText, isChoice } from '../engine/questions';
+import type { Question, Scenes } from '../engine/schema';
+import { ListenBar, MatchBoard, OrderBoard, PlaceBoard, SceneView, sceneCells, TrueFalse } from './Boards';
 
 const ACCENTS = [...'áéíóúñü¿¡'];
 
 /** Énoncé avec les trous ___ (remplis après la réponse). */
 export function Prompt({ q, revealed }: { q: Question; revealed: boolean }) {
-  const parts = q.answer.split(' / ');
+  const parts = isChoice(q) ? q.answer.split(' / ') : [];
   let k = 0;
   const body = q.prompt.includes('___')
     ? q.prompt.split('___').flatMap((seg, i, arr) =>
-        i < arr.length - 1 ? [seg, <span class="hueco" key={i}>{revealed ? parts[k++] ?? q.answer : ' '}</span>] : [seg],
+        i < arr.length - 1 ? [seg, <span class="hueco" key={i}>{revealed ? parts[k++] ?? "" : ' '}</span>] : [seg],
       )
     : q.prompt;
   return (
@@ -108,7 +110,7 @@ export function Options({ asked, q, given, done, hidden = [], onPick }: {
           dis = true;
         }
         if (done) {
-          if (o === q.answer) cls = 'good';
+          if (isChoice(q) && o === q.answer) cls = 'good';
           else if (o === given) cls = 'bad';
         }
         return (
@@ -122,9 +124,53 @@ export function Options({ asked, q, given, done, hidden = [], onPick }: {
   );
 }
 
+/** Zone de réponse, selon le mode de la question. */
+export function AnswerArea({ q, asked, scenes, voices, done, given, hidden = [], onAnswer, resetKey }: {
+  q: Question; asked: Asked; scenes: Scenes; voices: string[]; done: boolean; given: string | null; hidden?: string[];
+  onAnswer: (v: string) => void; resetKey: string;
+}) {
+  return (
+    <>
+      {q.type === 'ecoute' && <ListenBar text={q.say ?? q.answer} voices={voices} auto={!done} />}
+      {q.type === 'qcm' && q.scene && <SceneView scenes={scenes} decorId={q.scene.decor} placed={sceneCells(q.scene)} />}
+      {asked.mode === 'qcm' && <Options asked={asked} q={q} given={given} done={done} hidden={hidden} onPick={onAnswer} />}
+      {asked.mode === 'write' && !done && <WriteInput onSubmit={onAnswer} resetKey={resetKey} />}
+      {asked.mode === 'tf' && q.type === 'vrai-faux' && <TrueFalse done={done} given={given} answer={q.answer} onPick={onAnswer} />}
+      {asked.mode === 'order' && <OrderBoard asked={asked} done={done} onSubmit={onAnswer} />}
+      {asked.mode === 'match' && q.type === 'association' && <MatchBoard q={q} asked={asked} done={done} onSubmit={onAnswer} />}
+      {asked.mode === 'place' && q.type === 'scene' && <PlaceBoard q={q} asked={asked} scenes={scenes} done={done} onSubmit={onAnswer} />}
+    </>
+  );
+}
+
+/** Correction : ce que l'élève a répondu et la bonne réponse. */
+export function Solution({ q, asked, verdict, given, scenes }: { q: Question; asked: Asked; verdict: string; given: string | null; scenes: Scenes }) {
+  const ok = verdict === 'ok' || verdict === 'oracle';
+  const complex = asked.mode !== 'qcm';
+  if (ok && !complex) return null;
+  return (
+    <>
+      {!ok && complex && asked.mode !== 'tf' && given && (
+        <p class="muted">
+          Ta réponse : <span lang="es">{givenText(q, given, scenes)}</span>
+        </p>
+      )}
+      {(!ok || asked.mode === 'write' || asked.mode === 'order') && (
+        <p class="sol">
+          {ok ? 'Réponse : ' : 'Bonne réponse : '}
+          <b lang={q.answerLang}>{answerText(q, scenes)}</b>
+        </p>
+      )}
+      {q.type === 'ecoute' && <p class="muted">Phrase entendue : « {q.say ?? q.answer} »</p>}
+      {q.type === 'vrai-faux' && q.translation && <p class="muted">{q.translation}</p>}
+    </>
+  );
+}
+
 /** Question complète hors combat : énoncé, réponse, correction. */
-export function QuizView({ q, asked, fb, onAnswer, children }: {
-  q: Question; asked: Asked; fb: { verdict: string; given: string } | null; onAnswer: (v: string) => void; children?: ComponentChildren;
+export function QuizView({ q, asked, fb, onAnswer, scenes, voices, children }: {
+  q: Question; asked: Asked; fb: { verdict: string; given: string } | null; onAnswer: (v: string) => void;
+  scenes: Scenes; voices: string[]; children?: ComponentChildren;
 }) {
   return (
     <div class="qa quiz" data-qid={q.id} data-mode={asked.mode}>
@@ -135,20 +181,11 @@ export function QuizView({ q, asked, fb, onAnswer, children }: {
         </span>
       </div>
       <Prompt q={q} revealed={!!fb} />
-      {asked.mode === 'qcm' ? (
-        <Options asked={asked} q={q} given={fb?.given ?? null} done={!!fb} onPick={onAnswer} />
-      ) : (
-        !fb && <WriteInput onSubmit={onAnswer} resetKey={asked.id} />
-      )}
+      <AnswerArea q={q} asked={asked} scenes={scenes} voices={voices} done={!!fb} given={fb?.given ?? null} onAnswer={onAnswer} resetKey={asked.id} />
       {fb && (
         <div class={`fb ${fb.verdict}`} role="status">
           <h3>{fb.verdict === 'ok' ? '¡Muy bien!' : fb.verdict === 'casi' ? '¡Casi! Ça passe.' : '¡Uy!'}</h3>
-          {(fb.verdict !== 'ok' || asked.mode === 'write') && (
-            <p class="sol">
-              {asked.mode === 'write' && fb.verdict !== 'ok' ? `Tu as écrit « ${fb.given} ». ` : ''}
-              Bonne réponse : <b lang={q.answerLang}>{q.answer}</b>
-            </p>
-          )}
+          <Solution q={q} asked={asked} verdict={fb.verdict} given={fb.given} scenes={scenes} />
           {fb.verdict !== 'ok' && <p>{q.explanation}</p>}
           {children}
         </div>

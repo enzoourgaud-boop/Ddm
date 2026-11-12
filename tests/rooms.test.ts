@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest';
+import { canonicalValue, isWritable, wrongValue } from '../src/engine/questions';
 import { DEFAULT_SETTINGS, Game } from '../src/engine/game';
 import { content } from './helpers';
 
@@ -59,7 +60,7 @@ describe('salles hors combat', () => {
       if (ch.locked) {
         locked++;
         expect(ch.quiz).toBeTruthy();
-        g.chestAnswer(g.getQuestion(ch.quiz!.q.id)!.answer);
+        g.chestAnswer(canonicalValue(g.getQuestion(ch.quiz!.q.id)!));
         expect(Object.keys(g.state.relics).length).toBeGreaterThan(0);
       } else {
         open++;
@@ -86,7 +87,7 @@ describe('salles hors combat', () => {
           const st = g.state.event!;
           if (ch.quiz) {
             const q = g.getQuestion(st.quiz!.q.id)!;
-            g.eventAnswer(right ? q.answer : 'zzz-mauvais');
+            g.eventAnswer(right ? canonicalValue(q) : wrongValue(q, st.quiz!.q.options));
           }
           expect(st.result, `${ev.id} choix ${i}`).toBeTruthy();
           g.eventContinue();
@@ -123,7 +124,7 @@ describe('reliques et synergies', () => {
     const g = fightWith({ vela: 1, cempasuchil: 1, pan: 1 }, 'SYN-1');
     expect(g.activeSynergies().map(s => s.id)).toContain('ofrenda-completa');
     g.state.hp = 5;
-    g.answer(g.question!.answer);
+    g.answer(canonicalValue(g.question!));
     expect(g.state.hp).toBe(6);
   });
 
@@ -142,8 +143,8 @@ describe('reliques et synergies', () => {
         continue;
       }
       const q = g.question!;
-      if (q.type === 'ecrit' || q.writable) expect(c.q.mode).toBe('write');
-      g.answer(q.answer);
+      if (isWritable(q)) expect(c.q.mode).toBe('write');
+      g.answer(canonicalValue(q));
     }
   });
 
@@ -151,7 +152,7 @@ describe('reliques et synergies', () => {
     const g = fightWith({ mascara: 1 }, 'MAS-1');
     const hp = g.state.hp;
     const c = g.state.combat!;
-    g.answer(c.q.mode === 'qcm' ? c.q.options.find(o => o !== g.question!.answer)! : 'zzz');
+    g.answer(c.q.mode === 'qcm' ? c.q.options.find(o => o !== canonicalValue(g.question!))! : 'zzz');
     expect(g.state.hp).toBe(hp);
   });
 
@@ -159,7 +160,7 @@ describe('reliques et synergies', () => {
     const g = fightWith({ 'calavera-suerte': 1 }, 'REV-1');
     g.state.hp = 1;
     const c = g.state.combat!;
-    g.answer(c.q.mode === 'qcm' ? c.q.options.find(o => o !== g.question!.answer)! : 'zzz');
+    g.answer(c.q.mode === 'qcm' ? c.q.options.find(o => o !== canonicalValue(g.question!))! : 'zzz');
     expect(g.state.hp).toBe(Math.ceil(g.state.maxHp / 2));
     expect(g.state.reviveUsed).toBe(true);
   });
@@ -170,7 +171,7 @@ describe('reliques et synergies', () => {
     expect(g.usePower('incienso')).toBe(true);
     const hp = g.state.hp;
     const c = g.state.combat!;
-    g.answer(c.q.mode === 'qcm' ? c.q.options.find(o => o !== g.question!.answer)! : 'zzz');
+    g.answer(c.q.mode === 'qcm' ? c.q.options.find(o => o !== canonicalValue(g.question!))! : 'zzz');
     expect(g.state.hp).toBe(hp);
   });
 
@@ -191,7 +192,7 @@ describe('reliques et synergies', () => {
     const g = fightWith({}, 'BOSS-1', 'alebrije');
     for (let i = 0; i < 60 && g.state.screen === 'combat'; i++) {
       if (g.state.combat!.fb) g.proceed();
-      else g.answer(g.question!.answer);
+      else g.answer(canonicalValue(g.question!));
     }
     expect(g.state.screen).toBe('reward');
     expect(g.state.offerKind).toBe('jefe');

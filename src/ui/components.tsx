@@ -83,6 +83,7 @@ export function intentInfo(game: Game, it: Intent): { ico: string; text: string;
     case 'poison': return { ico: '☠️', text: `Poison ${it.value ?? 3}`, sub: `si tu te trompes : −1 PV par question · −${base * mult} PV` };
     case 'fog': return { ico: '🌫️', text: 'Brouillard', sub: `pouvoirs bloqués pour cette question · ${hit(base)}` };
     case 'stealItem': return { ico: '🎒', text: 'Vol de pouvoir', sub: `si tu te trompes, il te prend une aide · −${base * mult} PV` };
+    case 'listen': return { ico: '🔊', text: 'Canto', sub: `la question est à écouter · ${hit(base)}` };
   }
 }
 

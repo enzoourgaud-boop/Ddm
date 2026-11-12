@@ -2,12 +2,15 @@
  * Moteur de partie : état sérialisable + actions. Aucun accès au DOM.
  * L'interface appelle les actions (choose, answer, usePower, proceed…) puis relit `state`.
  */
-import { type AccentPolicy, autoHint, checkAnswer, fillBlanks, maskAnswer, normalize, type Verdict } from './answer';
+import { type AccentPolicy, autoHint, fillBlanks, maskAnswer, normalize, type Verdict } from './answer';
 import { type ActMap, generateMap, nodeById, reachable, type MapNode } from './map';
+import {
+  answerText, canonicalValue, fixedMode, givenText, isChoice, isWritable, judgeQuestion, type Mode, orderTokens, scissorsHint, STRONG_MODES, TF_OPTIONS,
+} from './questions';
 import { Rng } from './rng';
 import {
   type Act, type Content, type Enemy, type EventEffect, type EventOutcome, type GameEvent, type Intent, type Item, type Phase,
-  type Question, type Rarity, type RoomType, type Synergy, type Trait, levelNum,
+  type Question, type QuestionType, type Rarity, type RoomType, type Synergy, type Trait, levelNum,
 } from './schema';
 
 /* ======================= Types ======================= */
@@ -29,7 +32,7 @@ export const DEFAULT_SETTINGS: Settings = {
   themes: null, types: null, chrono: true, chronoFactor: 1, writeFactor: 1, accents: 'casi',
 };
 
-export type Mode = 'qcm' | 'write';
+export type { Mode } from './questions';
 
 export interface Asked {
   id: string;
@@ -168,6 +171,9 @@ export interface RunState {
   result: 'win' | 'lose' | null;
 }
 
+/** Les types « manipulables », moins nombreux dans la banque, sortent un peu plus souvent pour varier. */
+const TYPE_WEIGHT: Partial<Record<QuestionType, number>> = { ordre: 2.2, association: 2, scene: 1.8, ecoute: 1.6, 'vrai-faux': 1.3 };
+
 const RARITY_WEIGHT: Record<Rarity, number> = { comun: 60, rara: 30, legendaria: 10 };
 const BOSS_RARITY_WEIGHT: Record<Rarity, number> = { comun: 15, rara: 55, legendaria: 30 };
 
@@ -176,6 +182,7 @@ interface PickOpts {
   level: 1 | 2 | 3 | 4;
   needWrite: boolean;
   weakTheme?: string | null;
+  onlyType?: QuestionType;
 }
 
 /* ======================= Moteur ======================= */
@@ -318,7 +325,7 @@ export class Game {
     switch (it.effect) {
       case 'translate': return !q.translation ? 'pas de traduction' : c.used.translate ? 'déjà utilisé' : null;
       case 'hint': return c.used.hint ? 'déjà utilisé' : null;
-      case 'scissors': return c.used.scissors ? 'déjà utilisé' : null;
+      case 'scissors': return c.used.scissors ? 'déjà utilisé' : c.q.mode === 'tf' ? 'inutile ici' : null;
       case 'time': return c.timeMax ? null : 'pas de chrono';
       case 'cancelIntent': return c.canceled ? 'déjà utilisé' : null;
       default: return null;
@@ -429,7 +436,7 @@ export class Game {
 
   private pick(o: PickOpts): Question {
     const s = this.state;
-    const ok = (q: Question) => this.isUsable(q) && (!o.needWrite || q.type === 'ecrit' || q.writable);
+    const ok = (q: Question) => this.isUsable(q) && (!o.needWrite || isWritable(q)) && (!o.onlyType || q.type === o.onlyType);
     const order = [o.level, ...[4, 3, 2, 1].filter(l => l < o.level), ...[1, 2, 3, 4].filter(l => l > o.level)];
     const candidatesFor = (theme: string): Question[] => {
       for (const l of order) {
@@ -439,6 +446,7 @@ export class Game {
       return [];
     };
     const withPool = o.themes.map(t => ({ t, pool: candidatesFor(t) })).filter(x => x.pool.length);
+    if (!withPool.length && o.onlyType) return this.pick({ ...o, onlyType: undefined });
     if (!withPool.length) {
       const any = this.content.questions.filter(q => this.isUsable(q));
       return this.rng.pick(any.length ? any : this.content.questions);
@@ -447,11 +455,11 @@ export class Game {
     if (o.weakTheme && this.rng.chance(0.4)) chosen = withPool.find(x => x.t === o.weakTheme) ?? chosen;
     const fresh = chosen.pool.filter(q => !s.seen[q.id]);
     const pool = fresh.length ? fresh : chosen.pool;
-    return this.rng.weighted(pool, q => this.weightOf(q));
+    return this.rng.weighted(pool, q => this.weightOf(q) * (TYPE_WEIGHT[q.type] ?? 1));
   }
 
   private canWrite(q: Question): boolean {
-    return this.settings.writeFactor > 0 && (q.type === 'ecrit' || q.writable);
+    return this.settings.writeFactor > 0 && isWritable(q);
   }
 
   /** Part de base des réponses écrites hors règles spéciales. */
@@ -461,8 +469,25 @@ export class Game {
 
   private makeAsked(q: Question, mode: Mode, again = false): Asked {
     this.state.seen[q.id] = (this.state.seen[q.id] ?? 0) + 1;
-    const options = mode === 'qcm' ? this.rng.shuffle([q.answer, ...this.rng.shuffle(q.distractors).slice(0, 3)]) : [];
+    let options: string[] = [];
+    if (mode === 'qcm' && isChoice(q)) options = this.rng.shuffle([q.answer, ...this.rng.shuffle(q.distractors).slice(0, 3)]);
+    else if (mode === 'tf') options = [...TF_OPTIONS];
+    else if (mode === 'order' && q.type === 'ordre') {
+      const toks = [...orderTokens(q), ...q.extra];
+      options = this.rng.shuffle(toks);
+      for (let k = 0; k < 5 && options.join(' ') === orderTokens(q).join(' '); k++) options = this.rng.shuffle(toks);
+    } else if (mode === 'match' && q.type === 'association') options = this.rng.shuffle(q.pairs.map(p => p[1]));
+    else if (mode === 'place' && q.type === 'scene') options = this.rng.shuffle(q.scene.items.map(it => it.object));
     return { id: q.id, mode, options, again: again || undefined };
+  }
+
+  /** Mode de réponse : imposé par le type, sinon QCM ou écrit. */
+  private chooseMode(q: Question, writeP: number, forceWrite = false): Mode {
+    const fm = fixedMode(q);
+    if (fm && fm !== 'write') return fm;
+    if (!this.canWrite(q)) return 'qcm';
+    if (fm === 'write' || forceWrite) return 'write';
+    return this.rng.chance(writeP) ? 'write' : 'qcm';
   }
 
   /** Enregistre le résultat d'une réponse (statistiques, carnet, revanche). */
@@ -494,8 +519,7 @@ export class Game {
   private judgeAsked(asked: Asked, value: string): Verdict | null {
     const q = this.qById.get(asked.id);
     if (!q) return null;
-    if (asked.mode === 'qcm') return normalize(value) === normalize(q.answer) ? 'ok' : 'ko';
-    return checkAnswer(value, [q.answer, ...q.accept], this.checkOptions(q));
+    return judgeQuestion(q, asked.mode, value, this.checkOptions(q));
   }
 
   /** Question hors combat (événements, coffres). */
@@ -503,8 +527,7 @@ export class Game {
     const active = this.activeThemes();
     const themes = o.themes?.filter(t => active.includes(t)) ?? [];
     const q = this.pick({ themes: themes.length ? themes : active, level: o.level ?? this.act.level, needWrite: !!o.write && this.settings.writeFactor > 0 });
-    const mode: Mode = this.canWrite(q) && (o.write || q.type === 'ecrit' || this.rng.chance(this.writeChance())) ? 'write' : 'qcm';
-    return { q: this.makeAsked(q, mode), fb: null };
+    return { q: this.makeAsked(q, this.chooseMode(q, this.writeChance(), !!o.write)), fb: null };
   }
 
   private answerQuiz(quiz: QuizState, value: string): Verdict | null {
@@ -547,6 +570,7 @@ export class Game {
       it = this.rng.pick(pool.length ? pool : list);
     }
     if (it.kind === 'rush' && !this.settings.chrono) it = { kind: 'attack' };
+    if (it.kind === 'listen' && this.settings.types && !this.settings.types.includes('ecoute')) it = { kind: 'attack' };
     return { ...it };
   }
 
@@ -568,6 +592,11 @@ export class Game {
     return this.enemy?.modifier === 'soloEscrito' && this.settings.writeFactor > 0;
   }
 
+  /** Seules les questions possibles à l'écrit sont tirées (élite « Solo escrito », abanico). */
+  private writableOnly(): boolean {
+    return this.settings.writeFactor > 0 && (this.enemy?.modifier === 'soloEscrito' || this.traits().has('abanico'));
+  }
+
   private targetLevel(): 1 | 2 | 3 | 4 {
     const e = this.enemy!, ph = this.phase;
     if (ph?.levels?.length) return levelNum(this.rng.pick(ph.levels));
@@ -587,17 +616,16 @@ export class Game {
     if (c.juicio && e.focusTheme && themes.includes(e.focusTheme)) themes = [e.focusTheme];
     let level = this.targetLevel();
     if (easier && level > 1) level = (level - 1) as 1 | 2 | 3;
-    return { themes, level, needWrite: this.needsWrite(), weakTheme: c.weakTheme };
+    const listen = c.intent.kind === 'listen' && !c.canceled;
+    return { themes, level, needWrite: this.writableOnly(), weakTheme: c.weakTheme, onlyType: listen ? 'ecoute' : undefined };
   }
 
   private modeFor(q: Question): Mode {
     const e = this.enemy!, tr = this.traits();
-    if (!this.canWrite(q)) return 'qcm';
-    if (q.type === 'ecrit' || this.needsWrite() || this.relicCount('allWrite')) return 'write';
     let p = this.writeChance(e.kind === 'jefe' ? 0.1 : 0);
     if (e.kind === 'final') p = Math.min(1, 0.5 * this.settings.writeFactor);
     if (tr.has('abanico')) p = Math.min(1, 0.75 * this.settings.writeFactor);
-    return this.rng.chance(p) ? 'write' : 'qcm';
+    return this.chooseMode(q, p, this.needsWrite() || this.relicCount('allWrite') > 0);
   }
 
   private ask(forceNew = false, easier = false) {
@@ -608,12 +636,12 @@ export class Game {
       q = this.qById.get(s.retry.shift()!);
       again = !!q;
     }
-    if (!q || !this.isUsable(q) || (this.needsWrite() && !this.canWrite(q))) {
+    if (!q || !this.isUsable(q) || (this.writableOnly() && !this.canWrite(q)) || (c.intent.kind === 'listen' && q.type !== 'ecoute')) {
       q = this.pick(this.combatPickOpts(easier));
       again = false;
     }
-    const mode = this.modeFor(q);
-    c.q = this.makeAsked(q, mode, again);
+    c.q = this.makeAsked(q, this.modeFor(q), again);
+    const mode = c.q;
     c.fb = null;
     c.used = {};
     c.hidden = [];
@@ -622,7 +650,8 @@ export class Game {
       c.timeMax = c.timeLeft = 0;
     } else {
       let sec = this.traits().has('ultimoBaile') ? 15 : this.act.chrono;
-      if (mode === 'write') sec += 10;
+      sec += { write: 10, order: 12, match: 10, place: 15, qcm: 0, tf: -5 }[mode.mode] ?? 0;
+      if (q.type === 'ecoute') sec += 6;
       sec += this.relicValue('slowTime', 10);
       if (e.modifier === 'prisa') sec *= 0.5;
       sec *= this.settings.chronoFactor;
@@ -668,7 +697,7 @@ export class Game {
     // l'Oráculo amélioré compte comme une vraie réponse écrite
     const strongOracle = how === 'oracle' && this.isUpgraded(this.idByEffect('oracle') ?? '');
     const counts = how !== 'oracle' || strongOracle;
-    const written = c.q.mode === 'write' || strongOracle;
+    const written = STRONG_MODES.includes(c.q.mode) || strongOracle;
 
     if (v === 'ok') {
       let dmg = 1 + this.relicValue('damageBonus');
@@ -722,7 +751,7 @@ export class Game {
         fb.lines.push(`${e.name} disparaît : ton coup passe à travers ! La prochaine fois, ça touchera.`);
       }
       if (dmg > 0 && c.abanico > 0) {
-        if (written || how === 'oracle') {
+        if (c.q.mode === 'write' || how === 'oracle') {
           const a = Math.min(c.abanico, dmg);
           c.abanico -= a;
           dmg -= a;
@@ -746,7 +775,7 @@ export class Game {
       const gold = 1 + this.relicValue('goldPerCorrect');
       s.gold += gold;
       fb.title = how === 'oracle' ? seq.feedback.oracle : this.rng.pick(seq.feedback.ok);
-      fb.lines.unshift(`${e.name} perd ${dmg} PV${fb.combo ? ` (série de ${fb.combo})` : ''}${written && how !== 'oracle' ? ', réponse écrite : dégâts renforcés' : ''}. +${gold} 🪙`);
+      fb.lines.unshift(`${e.name} perd ${dmg} PV${fb.combo ? ` (série de ${fb.combo})` : ''}${written && how !== 'oracle' ? `, ${c.q.mode === 'write' ? 'réponse écrite' : 'défi réussi'} : dégâts renforcés` : ''}. +${gold} 🪙`);
     } else if (v === 'casi') {
       this.record(q, 'casi', value, c.q.mode);
       fb.fx.push('casi');
@@ -881,9 +910,9 @@ export class Game {
     s.errors.push({
       id: q.id,
       prompt: `${q.label ? q.label + ' · ' : ''}${q.prompt}`,
-      answer: fillBlanks(q.prompt, q.answer),
+      answer: isChoice(q) || q.type === 'ordre' ? fillBlanks(q.prompt, q.answer) : answerText(q, this.content.scenes),
       explanation: q.explanation,
-      given,
+      given: givenText(q, given, this.content.scenes),
     });
   }
 
@@ -1239,8 +1268,9 @@ export class Game {
         break;
       case 'scissors':
         c!.used.scissors = true;
-        if (c!.q.mode === 'qcm') c!.hidden = this.rng.shuffle(c!.q.options.filter(o => o !== q!.answer)).slice(0, 2);
-        else c!.mask = maskAnswer(q!.answer);
+        if (c!.q.mode === 'qcm' && isChoice(q!)) c!.hidden = this.rng.shuffle(c!.q.options.filter(o => o !== q!.answer)).slice(0, 2);
+        else if (c!.q.mode === 'write' && isChoice(q!)) c!.mask = maskAnswer(q!.answer);
+        else c!.mask = scissorsHint(q!, this.content.scenes);
         if (up && c!.timeMax) {
           c!.timeLeft += 10000;
           c!.timeMax = Math.max(c!.timeMax, c!.timeLeft);
@@ -1262,7 +1292,7 @@ export class Game {
         return true;
       case 'oracle':
         consume();
-        this.answer(q!.answer, 'oracle');
+        this.answer(canonicalValue(q!), 'oracle');
         return true;
       default:
         return false;
@@ -1276,10 +1306,12 @@ export class Game {
   hintText(): string {
     const q = this.question;
     if (!q) return '';
-    const leaks = normalize(q.explanation).includes(normalize(q.answer));
+    const ans = answerText(q, this.content.scenes);
+    const leaks = isChoice(q) && normalize(q.explanation).includes(normalize(ans));
     const hintId = this.idByEffect('hint');
-    if (hintId && this.isUpgraded(hintId)) return leaks ? autoHint(q.answer) : `${q.explanation} ${autoHint(q.answer)}`;
-    return leaks ? autoHint(q.answer) : q.explanation;
+    const auto = isChoice(q) || q.type === 'ordre' ? autoHint(ans) : '';
+    if (hintId && this.isUpgraded(hintId)) return leaks ? auto : `${q.explanation} ${auto}`.trim();
+    return leaks ? auto : q.explanation;
   }
 
   /* ======================= Fin ======================= */

@@ -28,7 +28,8 @@ const reduced = () => typeof matchMedia !== 'undefined' && matchMedia('(prefers-
 
 /** Boîte de dialogue : les messages s'écrivent l'un après l'autre. Un clic affiche tout. */
 export function Dialog({ messages, id }: { messages: string[]; id: string }) {
-  const full = messages.join('\n');
+  // espaces insécables de la typographie française (« ! » jamais seul en début de ligne)
+  const full = messages.join('\n').replace(/ ([!?:;»])/g, '\u00a0$1').replace(/« /g, '«\u00a0');
   const [n, setN] = useState(reduced() ? full.length : 0);
   useEffect(() => {
     if (reduced()) {

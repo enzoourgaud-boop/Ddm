@@ -1,4 +1,5 @@
 /** Bot de simulation : joue des parties entières sans interface (tests et équilibrage). */
+import { canonicalValue, wrongValue } from '../src/engine/questions';
 import { DEFAULT_SETTINGS, Game, type QuizState, type Settings } from '../src/engine/game';
 import { Rng } from '../src/engine/rng';
 import type { Content } from '../src/engine/schema';
@@ -13,7 +14,7 @@ export interface SimResult {
 }
 
 /** Durées estimées d'un élève de 5e (secondes). */
-export const T = { qcm: 9, write: 16, feedback: 4, reward: 10, shop: 25, map: 4, event: 25, rest: 8, chest: 8 };
+export const T = { qcm: 9, write: 16, tf: 7, order: 18, match: 15, place: 20, feedback: 4, reward: 10, shop: 25, map: 4, event: 25, rest: 8, chest: 8 };
 
 export function simulate(content: Content, seed: string, accuracy: number, settings: Settings = { ...DEFAULT_SETTINGS }): SimResult {
   const g = Game.newRun(content, settings, seed, 0);
@@ -23,9 +24,9 @@ export function simulate(content: Content, seed: string, accuracy: number, setti
   const reply = (quiz: { q: QuizState['q'] }) => {
     const q = g.getQuestion(quiz.q.id)!;
     answers++;
-    sec += quiz.q.mode === 'write' ? T.write : T.qcm;
-    if (bot.chance(accuracy)) return q.answer;
-    return quiz.q.mode === 'qcm' ? quiz.q.options.find(o => o !== q.answer)! : 'no sé';
+    sec += T[quiz.q.mode];
+    if (bot.chance(accuracy)) return canonicalValue(q);
+    return wrongValue(q, quiz.q.options);
   };
   while (g.state.screen !== 'over' && guard++ < 20000) {
     const s = g.state;

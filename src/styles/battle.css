@@ -175,7 +175,8 @@
   .lado-enemigo { right: 2%; top: 22%; width: 44%; height: 44%; }
   .lado-jugador { left: 2%; width: 44%; height: 48%; }
   .marco-jugador { bottom: 4%; }
-  .bocadillo { left: -32%; top: -8%; font-size: .78rem; max-width: 80%; }
+  .bocadillo { left: auto; right: 0; top: -14%; font-size: .78rem; max-width: 90%; }
+  .bocadillo::after { display: none; }
   .sprite { width: 84px; height: 84px; }
   .sprite.jugador { width: 92px; }
 }
@@ -184,3 +185,6 @@
   .cortina { display: none; }
   .pv-barra i { transition: none; }
 }
+
+/* la police pixel transforme « fi » en un glyphe illisible */
+.escenario, .dialogo, .marco, .bocadillo { font-variant-ligatures: none; font-feature-settings: "liga" 0, "clig" 0; }

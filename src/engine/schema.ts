@@ -22,7 +22,8 @@ const idSchema = z
   .string()
   .regex(/^[a-z0-9][a-z0-9-]*$/, "l'identifiant ne doit contenir que des minuscules, chiffres et tirets");
 
-const baseFields = {
+/** Champs communs à tous les types de questions. */
+const commonFields = {
   id: idSchema,
   theme: z.string().min(1),
   notions: z.array(z.string().min(1)).min(1, 'au moins une notion'),
@@ -32,11 +33,8 @@ const baseFields = {
   prompt: z.string().min(1, "l'énoncé est vide"),
   promptLang: z.enum(['es', 'fr']).default('es'),
   emoji: z.string().optional(),
-  answer: z.string().min(1, 'la réponse est vide'),
   /** Langue des réponses (es par défaut). */
   answerLang: z.enum(['es', 'fr']).default('es'),
-  accept: z.array(z.string().min(1)).default([]),
-  distractors: z.array(z.string().min(1)).min(3, 'il faut au moins 3 distracteurs'),
   translation: z.string().default(''),
   explanation: z.string().min(1, "l'explication est vide"),
   source: z.string().min(1),
@@ -45,29 +43,124 @@ const baseFields = {
   disabled: z.boolean().optional(),
 };
 
+/** Champs des questions à choix (QCM, écrit, écoute). */
+const choiceFields = {
+  answer: z.string().min(1, 'la réponse est vide'),
+  accept: z.array(z.string().min(1)).default([]),
+  distractors: z.array(z.string().min(1)).min(3, 'il faut au moins 3 distracteurs'),
+};
+
+/** Placement d'un objet sur une scène. row / col absents = position libre sur cet axe. */
+export const PlacementSchema = z
+  .object({ object: z.string(), row: z.string().optional(), col: z.string().optional() })
+  .strict();
+export type Placement = z.infer<typeof PlacementSchema>;
+export const SceneRefSchema = z.object({ decor: z.string(), items: z.array(PlacementSchema).min(1).max(5) }).strict();
+export type SceneRef = z.infer<typeof SceneRefSchema>;
+
 export const QcmQuestionSchema = z
   .object({
-    ...baseFields,
+    ...commonFields,
+    ...choiceFields,
     type: z.literal('qcm'),
     /** La question peut aussi être posée à l'écrit (champ de saisie). */
+    writable: z.boolean().default(false),
+    /** Image de scène affichée avec la question (décrire une image). */
+    scene: SceneRefSchema.optional(),
+  })
+  .strict();
+
+export const EcritQuestionSchema = z.object({ ...commonFields, ...choiceFields, type: z.literal('ecrit') }).strict();
+
+/** Compréhension orale : la phrase est lue par la synthèse vocale. */
+export const EcouteQuestionSchema = z
+  .object({
+    ...commonFields,
+    ...choiceFields,
+    type: z.literal('ecoute'),
+    /** Texte lu à voix haute (par défaut : la réponse, pour une dictée ou une reconnaissance). */
+    say: z.string().optional(),
     writable: z.boolean().default(false),
   })
   .strict();
 
-export const EcritQuestionSchema = z.object({ ...baseFields, type: z.literal('ecrit') }).strict();
+/** Vrai / faux culturel ou grammatical. */
+export const VraiFauxQuestionSchema = z
+  .object({ ...commonFields, type: z.literal('vrai-faux'), answer: z.enum(['verdadero', 'falso']) })
+  .strict();
 
-export const QuestionSchema = z.discriminatedUnion('type', [QcmQuestionSchema, EcritQuestionSchema]);
+/** Remettre une phrase dans l'ordre (glisser-déposer). */
+export const OrdreQuestionSchema = z
+  .object({
+    ...commonFields,
+    type: z.literal('ordre'),
+    answer: z.string().min(1),
+    accept: z.array(z.string().min(1)).default([]),
+    /** Étiquettes dans le bon ordre (par défaut : les mots de la réponse). */
+    tokens: z.array(z.string().min(1)).min(2).optional(),
+    /** Étiquettes pièges à ne pas utiliser. */
+    extra: z.array(z.string().min(1)).max(3).default([]),
+  })
+  .strict();
+
+/** Associer chaque mot à son image. */
+export const AssociationQuestionSchema = z
+  .object({ ...commonFields, type: z.literal('association'), pairs: z.array(z.tuple([z.string().min(1), z.string().min(1)])).min(3).max(5) })
+  .strict();
+
+/** Placer des objets sur une scène d'après une consigne en espagnol. */
+export const SceneQuestionSchema = z.object({ ...commonFields, type: z.literal('scene'), scene: SceneRefSchema }).strict();
+
+export const QuestionSchema = z.discriminatedUnion('type', [
+  QcmQuestionSchema, EcritQuestionSchema, EcouteQuestionSchema, VraiFauxQuestionSchema,
+  OrdreQuestionSchema, AssociationQuestionSchema, SceneQuestionSchema,
+]);
 export const QuestionListSchema = z.array(QuestionSchema);
 
 export type QuestionInput = z.input<typeof QuestionSchema>;
 export type Question = z.output<typeof QuestionSchema>;
 export type QuestionType = Question['type'];
+export type ChoiceQuestion = Extract<Question, { type: 'qcm' | 'ecrit' | 'ecoute' }>;
+export const QUESTION_TYPES: { id: QuestionType; label: string }[] = [
+  { id: 'qcm', label: 'QCM' },
+  { id: 'ecrit', label: 'Réponse écrite' },
+  { id: 'ecoute', label: 'Compréhension orale' },
+  { id: 'vrai-faux', label: 'Vrai / faux' },
+  { id: 'ordre', label: 'Phrase à remettre dans l’ordre' },
+  { id: 'association', label: 'Associer mot et image' },
+  { id: 'scene', label: 'Placer sur une scène' },
+];
+
+/* ---------- Scènes (décors et objets à placer) ---------- */
+
+export const ScenesSchema = z
+  .object({
+    decors: z.array(
+      z
+        .object({
+          id: idSchema,
+          name: z.string(),
+          /** Rangées de haut en bas : [identifiant, expression espagnole]. */
+          rows: z.array(z.tuple([z.string(), z.string()])).min(1),
+          /** Colonnes de gauche à droite : [identifiant, expression espagnole]. */
+          cols: z.array(z.tuple([z.string(), z.string()])).min(1),
+          /** Taille relative des objets par rangée (perspective). */
+          scale: z.array(z.number()).optional(),
+        })
+        .strict(),
+    ),
+    objects: z.array(
+      z.object({ id: idSchema, es: z.string(), un: z.string(), fr: z.string(), emoji: z.string() }).strict(),
+    ),
+  })
+  .strict();
+export type Scenes = z.infer<typeof ScenesSchema>;
 
 /* ---------- Ennemis ---------- */
 
 export const IntentSchema = z
   .object({
-    kind: z.enum(['attack', 'shield', 'heal', 'steal', 'rush', 'poison', 'fog', 'stealItem']),
+    kind: z.enum(['attack', 'shield', 'heal', 'steal', 'rush', 'poison', 'fog', 'stealItem', 'listen']),
     value: z.number().int().positive().optional(),
   })
   .strict();
@@ -303,6 +396,7 @@ export interface Content {
   items: Item[];
   events: GameEvent[];
   synergies: Synergy[];
+  scenes: Scenes;
 }
 
 export type RoomType = 'combat' | 'elite' | 'shop' | 'rest' | 'event' | 'chest' | 'boss';

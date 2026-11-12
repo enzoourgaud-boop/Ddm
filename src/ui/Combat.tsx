@@ -1,7 +1,7 @@
 /** Écran de combat : scène rétro (ennemi, joueur, dialogue), question, correction, pouvoirs. */
 import { useEffect, useRef, useState } from 'preact/hooks';
 import type { Game } from '../engine/game';
-import { Options, Prompt, WriteInput } from './Answer';
+import { AnswerArea, Prompt, Solution } from './Answer';
 import { BattleScene } from './battle/BattleScene';
 import { Hud, Powers } from './components';
 
@@ -78,20 +78,22 @@ export function Combat({ game }: { game: Game }) {
             <b>Tijeras</b> <span class="mask">{c.mask}</span>
           </div>
         )}
-        {c.q.mode === 'qcm' ? (
-          <Options asked={c.q} q={q} given={fb?.given ?? null} done={!!fb} hidden={c.hidden} onPick={o => game.answer(o)} />
-        ) : (
-          !fb && <WriteInput onSubmit={v => game.answer(v)} resetKey={qKey} />
-        )}
+        <AnswerArea
+          q={q}
+          asked={c.q}
+          scenes={game.content.scenes}
+          voices={game.content.sequence.voices}
+          done={!!fb}
+          given={fb?.given ?? null}
+          hidden={c.hidden}
+          onAnswer={v => game.answer(v)}
+          resetKey={qKey}
+        />
         {fb && (
           <div class={`fb ${fb.outcome}`} role="status">
             <h3>{fb.title}</h3>
-            {(fb.outcome !== 'ok' || c.q.mode === 'write') && (
-              <p class="sol">
-                {c.q.mode === 'write' && fb.outcome !== 'ok' && fb.given ? `Tu as écrit « ${fb.given} ». ` : ''}
-                Bonne réponse : <b lang={q.answerLang}>{q.answer}</b>
-              </p>
-            )}
+            {c.q.mode === 'write' && fb.outcome !== 'ok' && fb.given && <p class="muted">Tu as écrit « {fb.given} ».</p>}
+            <Solution q={q} asked={c.q} verdict={fb.outcome} given={fb.given} scenes={game.content.scenes} />
             {fb.outcome !== 'ok' && fb.outcome !== 'oracle' && <p>{q.explanation}</p>}
             {fb.alert && <p class="alerta">{fb.alert}</p>}
             <div>

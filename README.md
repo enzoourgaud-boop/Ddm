@@ -2,7 +2,7 @@
 
 Roguelike éducatif pour réviser l'espagnol (5e, A1-A2) sur la séquence **Día de Muertos**. Il se joue dans le navigateur, sans serveur ni compte élève.
 
-> 🚧 **Étape 2 sur 6.** Le guide complet pour le professeur (mise en ligne sur GitHub Pages pas à pas, modification des questions sans programmer) arrivera à l'étape 6. Voir `docs/CONCEPTION.md` pour le plan.
+> 🚧 **Étape 3 sur 6.** Le guide complet pour le professeur (mise en ligne sur GitHub Pages pas à pas, modification des questions sans programmer) arrivera à l'étape 6. Voir `docs/CONCEPTION.md` pour le plan.
 
 ## Lancer le jeu sur ton ordinateur
 
@@ -36,6 +36,20 @@ Puis ouvre l'adresse affichée (en général http://localhost:5173).
 - `synergies.json` : les ensembles de reliques ;
 - `events.json` : les événements en espagnol ;
 - `sequence.json` : les réglages de la séquence (actes, carte, noms des salles, repas du Tianguis…).
+
+### Les types de questions
+
+| `type` | Ce que fait l'élève | Champs propres |
+|---|---|---|
+| `qcm` | choisit parmi 4 réponses (ou écrit si `writable: true`) | `answer`, `accept`, `distractors`, `scene` (facultatif : image de scène) |
+| `ecrit` | écrit la réponse | `answer`, `accept`, `distractors` |
+| `ecoute` | écoute (voix du navigateur), puis choisit ou écrit | `answer`, `distractors`, `say` (facultatif : texte lu) |
+| `vrai-faux` | répond Verdadero ou Falso | `answer` : `"verdadero"` ou `"falso"` |
+| `ordre` | remet les étiquettes dans l'ordre (glisser-déposer) | `answer`, `tokens` (facultatif), `extra` (étiquettes pièges) |
+| `association` | relie chaque mot à son image | `pairs` : `[["la vela", "🕯️"], …]` |
+| `scene` | place les objets sur une scène | `scene` : `{ "decor": "ofrenda", "items": [{ "object": "vela", "row": "arriba", "col": "izquierda" }] }` |
+
+Les décors et les objets des scènes sont dans `scenes.json`.
 
 Après toute modification, lance `npm run valider` : il indique précisément ce qui ne va pas.
 

@@ -181,10 +181,10 @@
         "kind": "attack"
       },
       {
-        "kind": "fog"
+        "kind": "listen"
       }
     ],
-    "taunt": "¡Uuuh! ¿Me ves en la noche?"
+    "taunt": "¡Uuuh! ¿Me oyes en la noche?"
   },
   {
     "id": "esqueleto-musico",
