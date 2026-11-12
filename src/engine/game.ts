@@ -40,8 +40,16 @@ export interface Asked {
 
 export type Outcome = Verdict | 'timeout' | 'oracle';
 
+/** Effets visuels à jouer après une réponse (l'interface décide comment les animer). */
+export type Fx =
+  | 'enemyHit' | 'crit' | 'combo' | 'zero' | 'shieldHit' | 'vanish' | 'abanico' | 'heal' | 'enemyDown'
+  | 'playerHit' | 'blocked' | 'reflect' | 'mask' | 'canceled' | 'steal' | 'stealItem' | 'poison' | 'playerDown'
+  | 'casi' | 'phase' | 'revive' | 'playerHeal';
+
 export interface Feedback {
   outcome: Outcome;
+  /** Effets visuels, dans l'ordre. */
+  fx: Fx[];
   title: string;
   given: string | null;
   lines: string[];
@@ -655,7 +663,7 @@ export class Game {
       v = j;
     }
     const seq = this.content.sequence;
-    const fb: Feedback = { outcome: how === 'normal' ? v : how, title: '', given: value, lines: [], dmgToEnemy: 0, dmgToPlayer: 0 };
+    const fb: Feedback = { outcome: how === 'normal' ? v : how, fx: [], title: '', given: value, lines: [], dmgToEnemy: 0, dmgToPlayer: 0 };
     const tr = this.traits();
     // l'Oráculo amélioré compte comme une vraie réponse écrite
     const strongOracle = how === 'oracle' && this.isUpgraded(this.idByEffect('oracle') ?? '');
@@ -674,8 +682,10 @@ export class Game {
           const g = this.synergy('goldOnWrite');
           if (g) s.gold += g.value ?? 1;
         }
+        if (written) fb.fx.push('crit');
         const th = this.streakThreshold;
         if (s.streak >= th) {
+          fb.fx.push('combo');
           let bonus = (th === 2 ? 2 : 1) + this.relicValue('streakBonus');
           if (this.synergy('streakDouble')) bonus *= 2;
           dmg += bonus;
@@ -693,6 +703,7 @@ export class Game {
         if (heal && s.hp < s.maxHp) {
           const h = Math.min(s.maxHp - s.hp, heal.value ?? 1);
           s.hp += h;
+          fb.fx.push('playerHeal');
           fb.lines.push(`${heal.name} : +${h} PV.`);
         }
         if (this.relicCount('luckyCards') && how !== 'oracle') {
@@ -707,6 +718,7 @@ export class Game {
       if (tr.has('vanish') && !c.vanishUsed) {
         c.vanishUsed = true;
         dmg = 0;
+        fb.fx.push('vanish');
         fb.lines.push(`${e.name} disparaît : ton coup passe à travers ! La prochaine fois, ça touchera.`);
       }
       if (dmg > 0 && c.abanico > 0) {
@@ -717,6 +729,7 @@ export class Game {
           fb.lines.push(c.abanico > 0 ? `L'abanico se déchire (${c.abanico} restant).` : "L'abanico est brisé !");
         } else {
           dmg = 0;
+          fb.fx.push('abanico');
           fb.lines.push("L'abanico bloque les réponses en QCM : écris pour le briser !");
         }
       }
@@ -724,16 +737,19 @@ export class Game {
         const a = Math.min(c.shield, dmg);
         c.shield -= a;
         dmg -= a;
+        fb.fx.push('shieldHit');
         fb.lines.push(`Le bouclier absorbe ${a} dégât${a > 1 ? 's' : ''}.`);
       }
       c.hp = Math.max(0, c.hp - dmg);
       fb.dmgToEnemy = dmg;
+      fb.fx.push(dmg > 0 ? 'enemyHit' : 'zero');
       const gold = 1 + this.relicValue('goldPerCorrect');
       s.gold += gold;
       fb.title = how === 'oracle' ? seq.feedback.oracle : this.rng.pick(seq.feedback.ok);
       fb.lines.unshift(`${e.name} perd ${dmg} PV${fb.combo ? ` (série de ${fb.combo})` : ''}${written && how !== 'oracle' ? ', réponse écrite : dégâts renforcés' : ''}. +${gold} 🪙`);
     } else if (v === 'casi') {
       this.record(q, 'casi', value, c.q.mode);
+      fb.fx.push('casi');
       fb.title = seq.feedback.casi;
       fb.lines.push("Il manque un accent (ou un tilde). Personne n'est blessé, ta série continue.");
     } else {
@@ -755,6 +771,7 @@ export class Game {
         const h = Math.min(c.maxHp - c.hp, c.intent.value ?? 2);
         if (h > 0) {
           c.hp += h;
+          fb.fx.push('heal');
           fb.lines.push(`${e.name} se soigne de ${h} PV.`);
         }
       }
@@ -770,9 +787,12 @@ export class Game {
       s.hp = Math.max(0, s.hp - 1);
       s.poison--;
       fb.dmgToPlayer += 1;
+      if (!fb.fx.includes('playerHit')) fb.fx.push('poison');
       fb.lines.push(`Le poison te fait perdre 1 PV (${s.poison} restant${s.poison > 1 ? 's' : ''}).`);
     }
     if (s.hp <= 0) this.tryRevive(fb);
+    if (s.hp <= 0) fb.fx.push('playerDown');
+    if (c.hp <= 0) fb.fx.push('enemyDown');
     // changement de phase
     if (e.phases && c.hp > 0) {
       let p = c.phase;
@@ -782,6 +802,7 @@ export class Game {
         const ph = e.phases[p];
         c.abanico = this.settings.writeFactor > 0 ? ph.abanico ?? 0 : 0;
         c.attackBonus = ph.attackBonus;
+        fb.fx.push('phase');
         fb.alert = `${ph.name} — ${ph.message}`;
       }
     }
@@ -790,17 +811,19 @@ export class Game {
     return fb;
   }
 
-  private tryRevive(fb: { lines: string[]; alert?: string }) {
+  private tryRevive(fb: { lines: string[]; alert?: string; fx?: Fx[] }) {
     const s = this.state;
     if (s.hp > 0 || s.reviveUsed || !this.relicCount('revive')) return;
     s.reviveUsed = true;
     s.hp = Math.ceil(s.maxHp / 2);
+    fb.fx?.push('revive');
     fb.alert = `La Calavera de la suerte te ramène sur le chemin avec ${s.hp} PV !`;
   }
 
   private enemyStrikes(fb: Feedback) {
     const s = this.state, c = s.combat!, e = this.enemy!, it = c.intent;
     if (c.canceled) {
+      fb.fx.push('canceled');
       fb.lines.push(`L'encens apaise ${e.name} : il ne fait rien ce tour-ci.`);
       return;
     }
@@ -812,23 +835,28 @@ export class Game {
     const shieldId = Object.keys(s.inv).find(id => s.inv[id] > 0 && this.itemById.get(id)?.effect === 'autoShield');
     if (shieldId) {
       s.inv[shieldId]--;
+      fb.fx.push('blocked');
       fb.lines.push(`Ton ${this.itemById.get(shieldId)!.name} bloque l'attaque de ${e.name}.`);
       if (this.isUpgraded(shieldId)) {
         c.hp = Math.max(0, c.hp - 2);
         fb.dmgToEnemy += 2;
+        fb.fx.push('reflect');
         fb.lines.push(`Il renvoie 2 dégâts à ${e.name} !`);
       }
     } else if (this.relicCount('firstErrorShield') && !c.firstErrorUsed) {
       c.firstErrorUsed = true;
+      fb.fx.push('mask');
       fb.lines.push('Ta Máscara encaisse la première erreur du combat : aucun dégât.');
     } else {
       s.hp = Math.max(0, s.hp - dmg);
       fb.dmgToPlayer += dmg;
+      fb.fx.push('playerHit');
       fb.lines.push(`${e.name} t'inflige ${dmg} dégât${dmg > 1 ? 's' : ''}.`);
     }
     if (it.kind === 'steal' && s.gold > 0) {
       const g = Math.min(s.gold, it.value ?? 2);
       s.gold -= g;
+      fb.fx.push('steal');
       fb.lines.push(`${e.name} te vole ${g} 🪙.`);
     }
     if (it.kind === 'stealItem') {
@@ -836,11 +864,13 @@ export class Game {
       if (owned.length) {
         const id = this.rng.pick(owned);
         s.inv[id]--;
+        fb.fx.push('stealItem');
         fb.lines.push(`${e.name} te vole un pouvoir : ${this.itemById.get(id)?.name ?? id}.`);
       }
     }
     if (it.kind === 'poison') {
       s.poison += it.value ?? 3;
+      fb.fx.push('poison');
       fb.lines.push(`Tu es empoisonné·e : −1 PV par question pendant ${s.poison} questions.`);
     }
   }

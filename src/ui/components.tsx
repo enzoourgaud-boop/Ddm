@@ -165,14 +165,14 @@ export function Powers({ game, inCombat }: { game: Game; inCombat: boolean }) {
   );
 }
 
-export function Hud({ game, hit }: { game: Game; hit?: boolean }) {
+export function Hud({ game, hit, noHp }: { game: Game; hit?: boolean; noHp?: boolean }) {
   const s = game.state;
   const act = game.act;
   const th = game.streakThreshold;
   const floor = game.currentNode ? game.currentNode.floor + 1 : 0;
   return (
     <header class={`hud ${hit ? 'hit' : ''}`}>
-      <div class="hp">
+      {!noHp && <div class="hp">
         <span class="lbl">Vida</span>
         <div class="bar" role="meter" aria-label="Tes points de vie" aria-valuemin={0} aria-valuemax={s.maxHp} aria-valuenow={s.hp}>
           <i style={{ width: `${(100 * s.hp) / s.maxHp}%` }} />
@@ -180,7 +180,7 @@ export function Hud({ game, hit }: { game: Game; hit?: boolean }) {
         <b>
           {s.hp}/{s.maxHp}
         </b>
-      </div>
+      </div>}
       <span class={`chip ${s.streak >= th ? 'on' : ''}`} title="Bonnes réponses d'affilée">🔥 {s.streak}</span>
       <span class="chip" title="Monedas">🪙 {s.gold}</span>
       {s.poison > 0 && <span class="chip veneno" title="Poison : −1 PV par question">☠️ {s.poison}</span>}
