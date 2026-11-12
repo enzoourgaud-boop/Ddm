@@ -2,7 +2,7 @@
 
 Roguelike éducatif pour réviser l'espagnol (5e, A1-A2) sur la séquence **Día de Muertos**. Il se joue dans le navigateur, sans serveur ni compte élève.
 
-> 🚧 **Étape 3 sur 6.** Le guide complet pour le professeur (mise en ligne sur GitHub Pages pas à pas, modification des questions sans programmer) arrivera à l'étape 6. Voir `docs/CONCEPTION.md` pour le plan.
+> 🚧 **Étape 4 sur 6.** Le guide complet pour le professeur (mise en ligne sur GitHub Pages pas à pas, modification des questions sans programmer) arrivera à l'étape 6. Voir `docs/CONCEPTION.md` pour le plan.
 
 ## Lancer le jeu sur ton ordinateur
 
@@ -58,3 +58,10 @@ Les informations culturelles qui ne viennent pas des documents de cours sont lis
 ## Partie « défi de classe »
 
 Ajoute `?graine=MOT-12` à l'adresse du jeu, ou tape une graine sur l'écran d'accueil. Toute la classe aura alors la même carte et les mêmes salles.
+
+## Progression des élèves (sur l'appareil)
+
+- **Profils locaux** : un avatar et un pseudo par élève, sur cet appareil uniquement (pratique pour les PC partagés). Rien n'est envoyé sur Internet.
+- **Révision (système de Leitner)** : chaque question ratée revient plus souvent dans les parties suivantes, jusqu'à ce qu'elle soit réussie plusieurs fois. L'écran « Mon carnet » montre les notions à revoir.
+- **Personnages** (rubrique `characters` de `sequence.json`), **cartes de lotería** (une par ennemi et par objet), **succès**, et **Nivel de Calavera** (difficulté qui augmente après chaque victoire).
+- **Code de fin** : à la fin de chaque partie, l'élève obtient un code de 19 caractères (et un QR) qui résume son résultat et les notions ratées. L'espace professeur (étape 5) permettra de le décoder.

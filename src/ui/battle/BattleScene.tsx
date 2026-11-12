@@ -16,11 +16,11 @@ function EnemySprite({ emoji, top }: { emoji: string; top?: string }) {
   return <canvas ref={ref} class="sprite" width={32} height={32} aria-hidden="true" />;
 }
 
-function PlayerSprite() {
+function PlayerSprite({ palette }: { palette: Record<string, string> }) {
   const ref = useRef<HTMLCanvasElement>(null);
   useEffect(() => {
-    if (ref.current) drawPlayer(ref.current);
-  }, []);
+    if (ref.current) drawPlayer(ref.current, palette);
+  }, [JSON.stringify(palette)]);
   return <canvas ref={ref} class="sprite jugador" width={20} height={22} aria-hidden="true" />;
 }
 
@@ -76,6 +76,7 @@ const has = (fx: Fx[] | undefined, ...k: Fx[]) => !!fx && k.some(x => fx.include
 export function BattleScene({ game }: { game: Game }) {
   const s = game.state, c = s.combat!, e = game.enemy!, act = game.act, fb = c.fb, fx = fb?.fx;
   const info = intentInfo(game, c.intent);
+  const ch = game.content.sequence.characters.find(x => x.id === s.character);
   const mod = e.modifier ? MODIFIERS[e.modifier] : null;
   const phase = game.phase;
   const turnKey = `${e.id}-${c.turn}-${fb ? 'fb' : 'q'}`;
@@ -190,7 +191,7 @@ export function BattleScene({ game }: { game: Game }) {
             <div class={`spr-wrap ${playerMove}`} key={`p-${turnKey}`}>
               <div class={`capa ${playerBlink}`}>
                 <div class="respira">
-                  <PlayerSprite />
+                  <PlayerSprite palette={ch?.palette ?? {}} />
                 </div>
               </div>
             </div>
@@ -226,8 +227,8 @@ export function BattleScene({ game }: { game: Game }) {
         {/* cadre du joueur */}
         <div class="marco marco-jugador">
           <div class="marco-titulo">
-            <b>Tú</b>
-            <span class="nv">Acte {s.act + 1}</span>
+            <b>{ch?.name ?? 'Tú'}</b>
+            <span class="nv">{s.ascension ? `💀${s.ascension}` : `Acte ${s.act + 1}`}</span>
           </div>
           <HpBar hp={s.hp} max={s.maxHp} late={fb && !ok ? 'tarde-ko' : ''} label={`Tes points de vie : ${s.hp} sur ${s.maxHp}`} />
           <div class="marco-estado">

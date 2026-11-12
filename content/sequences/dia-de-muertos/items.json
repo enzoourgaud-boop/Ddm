@@ -8,7 +8,9 @@
     "price": 4,
     "effect": "translate",
     "description": "Traduit la question en français.",
-    "upgrade": "Traductor+ : affiche aussi l'antisèche."
+    "upgrade": "Traductor+ : affiche aussi l'antisèche.",
+    "card": 1,
+    "phrase": "¿Qué quiere decir?"
   },
   {
     "id": "chuleta",
@@ -19,7 +21,9 @@
     "price": 3,
     "effect": "hint",
     "description": "L'antisèche : montre la règle, ou la première lettre et la longueur du mot.",
-    "upgrade": "Chuleta+ : montre la règle et la première lettre."
+    "upgrade": "Chuleta+ : montre la règle et la première lettre.",
+    "card": 2,
+    "phrase": "Estoy leyendo la regla."
   },
   {
     "id": "tijeras",
@@ -30,7 +34,9 @@
     "price": 4,
     "effect": "scissors",
     "description": "Retire deux mauvaises réponses. À l'écrit, dévoile une lettre sur deux.",
-    "upgrade": "Tijeras+ : ajoute aussi 10 secondes au chrono."
+    "upgrade": "Tijeras+ : ajoute aussi 10 secondes au chrono.",
+    "card": 3,
+    "phrase": "Las tijeras están en la mesa."
   },
   {
     "id": "oraculo",
@@ -41,7 +47,9 @@
     "price": 7,
     "effect": "oracle",
     "description": "Donne la bonne réponse (et frappe l'ennemi).",
-    "upgrade": "Oráculo+ : compte comme une réponse écrite (dégâts et série)."
+    "upgrade": "Oráculo+ : compte comme une réponse écrite (dégâts et série).",
+    "card": 4,
+    "phrase": "El oráculo sabe la respuesta."
   },
   {
     "id": "cambio",
@@ -52,7 +60,9 @@
     "price": 3,
     "effect": "swap",
     "description": "Change de question sans pénalité.",
-    "upgrade": "Cambio+ : la nouvelle question est plus facile."
+    "upgrade": "Cambio+ : la nouvelle question est plus facile.",
+    "card": 6,
+    "phrase": "Cambio la pregunta."
   },
   {
     "id": "reloj",
@@ -64,7 +74,9 @@
     "effect": "time",
     "value": 15,
     "description": "Ajoute 15 secondes au chrono de la question.",
-    "upgrade": "Reloj de arena+ : ajoute 25 secondes."
+    "upgrade": "Reloj de arena+ : ajoute 25 secondes.",
+    "card": 7,
+    "phrase": "Hay poco tiempo."
   },
   {
     "id": "chocolate",
@@ -76,7 +88,9 @@
     "effect": "heal",
     "value": 5,
     "description": "Un chocolat chaud qui rend 5 points de vie.",
-    "upgrade": "Chocolate+ : rend 8 points de vie."
+    "upgrade": "Chocolate+ : rend 8 points de vie.",
+    "card": 9,
+    "phrase": "Estoy bebiendo un chocolate."
   },
   {
     "id": "escudo",
@@ -88,7 +102,9 @@
     "effect": "autoShield",
     "auto": true,
     "description": "Bloque tout seul la prochaine attaque.",
-    "upgrade": "Escudo+ : bloque l'attaque et renvoie 2 dégâts."
+    "upgrade": "Escudo+ : bloque l'attaque et renvoie 2 dégâts.",
+    "card": 10,
+    "phrase": "El escudo es fuerte."
   },
   {
     "id": "incienso",
@@ -99,7 +115,9 @@
     "price": 5,
     "effect": "cancelIntent",
     "description": "Annule l'intention de l'ennemi pour cette question.",
-    "upgrade": "Incienso+ : retire aussi le bouclier de l'ennemi."
+    "upgrade": "Incienso+ : retire aussi le bouclier de l'ennemi.",
+    "card": 12,
+    "phrase": "Ofrecen incienso en las tumbas."
   },
   {
     "id": "vela",
@@ -111,7 +129,9 @@
     "max": 2,
     "effect": "damageBonus",
     "value": 1,
-    "description": "+1 dégât à chaque bonne réponse."
+    "description": "+1 dégât à chaque bonne réponse.",
+    "card": 13,
+    "phrase": "La vela está a la izquierda."
   },
   {
     "id": "pluma",
@@ -123,7 +143,9 @@
     "max": 1,
     "effect": "writeBonus",
     "value": 1,
-    "description": "Les réponses écrites font +1 dégât de plus."
+    "description": "Les réponses écrites font +1 dégât de plus.",
+    "card": 15,
+    "phrase": "Estoy escribiendo una frase."
   },
   {
     "id": "maracas",
@@ -134,7 +156,9 @@
     "price": 10,
     "max": 1,
     "effect": "streakMaster",
-    "description": "Le bonus de série démarre dès 2 bonnes réponses et vaut +2."
+    "description": "Le bonus de série démarre dès 2 bonnes réponses et vaut +2.",
+    "card": 16,
+    "phrase": "Estamos tocando las maracas."
   },
   {
     "id": "corazon",
@@ -146,7 +170,9 @@
     "max": 3,
     "effect": "maxHp",
     "value": 4,
-    "description": "+4 points de vie maximum."
+    "description": "+4 points de vie maximum.",
+    "card": 18,
+    "phrase": "Mi corazón es grande."
   },
   {
     "id": "pinata",
@@ -158,7 +184,9 @@
     "max": 1,
     "effect": "goldPerCorrect",
     "value": 1,
-    "description": "+1 moneda par bonne réponse."
+    "description": "+1 moneda par bonne réponse.",
+    "card": 19,
+    "phrase": "La piñata es colorida."
   },
   {
     "id": "cempasuchil",
@@ -170,7 +198,9 @@
     "max": 1,
     "effect": "healAfterFight",
     "value": 2,
-    "description": "+2 points de vie après chaque combat."
+    "description": "+2 points de vie après chaque combat.",
+    "card": 21,
+    "phrase": "La flor de cempasúchil es naranja."
   },
   {
     "id": "tilde",
@@ -181,7 +211,9 @@
     "price": 8,
     "max": 1,
     "effect": "accentForgive",
-    "description": "Un accent oublié à l'écrit est pardonné."
+    "description": "Un accent oublié à l'écrit est pardonné.",
+    "card": 22,
+    "phrase": "«Está» lleva tilde."
   },
   {
     "id": "pan",
@@ -193,7 +225,9 @@
     "max": 1,
     "effect": "maxHp",
     "value": 3,
-    "description": "+3 points de vie maximum."
+    "description": "+3 points de vie maximum.",
+    "card": 24,
+    "phrase": "El pan de muerto es dulce."
   },
   {
     "id": "trompeta",
@@ -205,7 +239,9 @@
     "max": 1,
     "effect": "streakBonus",
     "value": 1,
-    "description": "Le bonus de série fait +1 dégât de plus."
+    "description": "Le bonus de série fait +1 dégât de plus.",
+    "card": 25,
+    "phrase": "El músico está tocando la trompeta."
   },
   {
     "id": "diccionario",
@@ -216,7 +252,9 @@
     "price": 8,
     "max": 1,
     "effect": "freeTranslate",
-    "description": "Un Traductor gratuit à chaque combat."
+    "description": "Un Traductor gratuit à chaque combat.",
+    "card": 26,
+    "phrase": "El diccionario está en la mochila."
   },
   {
     "id": "mapa",
@@ -227,7 +265,9 @@
     "price": 7,
     "max": 1,
     "effect": "extraChoice",
-    "description": "Un choix de plus dans chaque récompense."
+    "description": "Un choix de plus dans chaque récompense.",
+    "card": 27,
+    "phrase": "El mapa está en la mochila."
   },
   {
     "id": "colibri",
@@ -239,7 +279,9 @@
     "max": 1,
     "effect": "allWrite",
     "value": 2,
-    "description": "Règle modifiée : toutes les questions possibles passent à l'écrit, mais chaque réponse écrite fait +2 dégâts."
+    "description": "Règle modifiée : toutes les questions possibles passent à l'écrit, mais chaque réponse écrite fait +2 dégâts.",
+    "card": 28,
+    "phrase": "El colibrí está volando."
   },
   {
     "id": "reloj-sol",
@@ -251,7 +293,9 @@
     "max": 1,
     "effect": "slowTime",
     "value": 10,
-    "description": "Règle modifiée : +10 secondes au chrono, mais les ennemis frappent +1."
+    "description": "Règle modifiée : +10 secondes au chrono, mais les ennemis frappent +1.",
+    "card": 30,
+    "phrase": "El sol está arriba."
   },
   {
     "id": "mascara",
@@ -262,7 +306,9 @@
     "price": 11,
     "max": 1,
     "effect": "firstErrorShield",
-    "description": "La première erreur de chaque combat ne fait pas de dégâts."
+    "description": "La première erreur de chaque combat ne fait pas de dégâts.",
+    "card": 32,
+    "phrase": "La máscara es de muchos colores."
   },
   {
     "id": "calavera-suerte",
@@ -273,7 +319,9 @@
     "price": 16,
     "max": 1,
     "effect": "revive",
-    "description": "Une fois par partie, à 0 PV, tu reviens avec la moitié de ta vie."
+    "description": "Une fois par partie, à 0 PV, tu reviens avec la moitié de ta vie.",
+    "card": 33,
+    "phrase": "¡Qué suerte!"
   },
   {
     "id": "loteria",
@@ -285,6 +333,8 @@
     "max": 1,
     "effect": "luckyCards",
     "value": 4,
-    "description": "Toutes les 4 bonnes réponses, une aide gratuite au hasard."
+    "description": "Toutes les 4 bonnes réponses, une aide gratuite au hasard.",
+    "card": 35,
+    "phrase": "¡Lotería! Gano yo."
   }
 ]

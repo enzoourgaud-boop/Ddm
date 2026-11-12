@@ -253,3 +253,10 @@ Toutes les options par défaut ont été retenues :
 - Tijeras donne un indice sur les types sans QCM (début de phrase, une paire, la place d'un objet).
 - Les types peu nombreux dans la banque sortent un peu plus souvent (pondération), pour varier les parties.
 - Sans voix espagnole, la phrase s'affiche 5 secondes, une seconde fois sur demande.
+
+### Ajustements faits pendant l'étape 4
+- Profils locaux (avatar + pseudo) ; les sauvegardes des étapes précédentes sont reprises dans un premier profil.
+- Collection : 42 cartes (17 ennemis + 25 objets), chacune avec une phrase d'exemple en espagnol.
+- 19 succès, 10 niveaux de Calavera (règles cumulatives listées sur l'écran d'accueil).
+- Leitner : boîtes 1 à 5 ; poids de tirage 6 (boîte 1) à 1 (boîte 5), 4 pour une question jamais vue.
+- Code de fin : 19 caractères (alphabet de Crockford, somme de contrôle), QR généré sur l'appareil.

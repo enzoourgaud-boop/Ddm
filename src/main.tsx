@@ -8,6 +8,7 @@ import '@fontsource/press-start-2p/400.css';
 import './styles/main.css';
 import './styles/battle.css';
 import './styles/boards.css';
+import './styles/menu.css';
 import { App } from './ui/App';
 
 render(<App />, document.getElementById('root')!);

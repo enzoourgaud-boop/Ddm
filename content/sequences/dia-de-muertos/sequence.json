@@ -280,5 +280,83 @@
     "price": 4,
     "heal": 5,
     "description": "Rend 5 points de vie."
-  }
+  },
+  "characters": [
+    {
+      "id": "valentina",
+      "name": "Valentina",
+      "title": "la ofrendera",
+      "emoji": "🕯️",
+      "description": "Elle connaît chaque recoin de la ofrenda. Commence avec un Chocolate en plus ; la Ofrenda la soigne davantage (40 %).",
+      "bonus": {
+        "items": {
+          "chocolate": 1
+        },
+        "restHeal": 0.4
+      },
+      "palette": {
+        "H": "#ff9f1c",
+        "h": "#b5620a",
+        "b": "#ff3d8b",
+        "P": "#ff3d8b",
+        "p": "#a8205a",
+        "T": "#22d1c6"
+      },
+      "unlock": {
+        "type": "default"
+      }
+    },
+    {
+      "id": "mateo",
+      "name": "Mateo",
+      "title": "el trompetista",
+      "emoji": "🎺",
+      "description": "Il garde le rythme. Commence avec les Maracas (série dès 2 bonnes réponses) et 3 PV de plus.",
+      "bonus": {
+        "relics": {
+          "maracas": 1
+        },
+        "hp": 3
+      },
+      "palette": {
+        "H": "#ffd23f",
+        "h": "#b5620a",
+        "b": "#22d1c6",
+        "P": "#22d1c6",
+        "p": "#11806f",
+        "T": "#ffd23f"
+      },
+      "unlock": {
+        "type": "boss",
+        "value": "alebrije",
+        "label": "Vaincre l'Alebrije (jefe de l'acte 1)"
+      }
+    },
+    {
+      "id": "luz",
+      "name": "Luz",
+      "title": "la poeta",
+      "emoji": "✒️",
+      "description": "Elle écrit des vers pour les défunts. Commence avec la Pluma ; davantage de questions à écrire (qui frappent plus fort).",
+      "bonus": {
+        "relics": {
+          "pluma": 1
+        },
+        "writeShare": 0.15
+      },
+      "palette": {
+        "H": "#9b6cff",
+        "h": "#5b3a9e",
+        "b": "#ffd23f",
+        "P": "#9b6cff",
+        "p": "#5b3a9e",
+        "T": "#fff1dc"
+      },
+      "unlock": {
+        "type": "wins",
+        "value": 1,
+        "label": "Gagner une partie"
+      }
+    }
+  ]
 }

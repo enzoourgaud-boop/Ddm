@@ -80,6 +80,8 @@ export interface CombatState {
   firstErrorUsed: boolean;
   freeTranslateUsed: boolean;
   rowCorrect: number;
+  /** Erreurs pendant ce combat (combat parfait = 0). */
+  errors: number;
   fog: boolean;
   q: Asked;
   fb: Feedback | null;
@@ -136,7 +138,15 @@ export interface Offer {
 export type Screen = 'map' | 'combat' | 'reward' | 'shop' | 'rest' | 'event' | 'chest' | 'over';
 
 export interface RunState {
-  v: 2;
+  v: 3;
+  /** Personnage choisi et niveau de difficulté (« Nivel de Calavera », 0 à 10). */
+  character: string;
+  ascension: number;
+  /** Bonus du personnage. */
+  bonus: { writeShare: number; restHeal: number };
+  /** Ennemis vaincus et objets obtenus (collection de lotería). */
+  defeated: string[];
+  obtained: string[];
   seed: string;
   rng: number;
   screen: Screen;
@@ -156,7 +166,10 @@ export interface RunState {
   poison: number;
   reviveUsed: boolean;
   luckyCount: number;
-  stats: { ok: number; ko: number; casi: number; won: number; written: number; turns: number; rooms: number; startedAt: number; endedAt: number };
+  stats: {
+    ok: number; ko: number; casi: number; won: number; written: number; turns: number; rooms: number; startedAt: number; endedAt: number;
+    maxStreak: number; perfectFights: number; powersUsed: number;
+  };
   seen: Record<string, number>;
   retry: string[];
   errors: ErrorEntry[];
@@ -173,6 +186,23 @@ export interface RunState {
 
 /** Les types « manipulables », moins nombreux dans la banque, sortent un peu plus souvent pour varier. */
 const TYPE_WEIGHT: Partial<Record<QuestionType, number>> = { ordre: 2.2, association: 2, scene: 1.8, ecoute: 1.6, 'vrai-faux': 1.3 };
+
+export const MAX_ASCENSION = 10;
+
+/** Effets cumulatifs de chaque « Nivel de Calavera ». */
+export const ASCENSION_RULES: string[] = [
+  'Le chemin normal.',
+  'Les ennemis ont 1 PV de plus.',
+  'Le chrono est plus court de 3 secondes.',
+  'Une aide de départ en moins.',
+  'Les élites ont 2 PV et 1 attaque de plus.',
+  'Les combats rapportent moins de monedas.',
+  "La Ofrenda soigne moins (−10 points).",
+  'Les jefes ont 3 PV de plus.',
+  'Davantage de questions à écrire.',
+  '3 PV de moins au départ.',
+  'Le jefe final a 6 PV et 1 attaque de plus.',
+];
 
 const RARITY_WEIGHT: Record<Rarity, number> = { comun: 60, rara: 30, legendaria: 10 };
 const BOSS_RARITY_WEIGHT: Record<Rarity, number> = { comun: 15, rara: 55, legendaria: 30 };
@@ -197,8 +227,10 @@ export class Game {
   private itemById: Map<string, Item>;
   private eventById: Map<string, GameEvent>;
   private listeners = new Set<() => void>();
-  /** Poids de tirage d'une question (branché sur Leitner à l'étape 4). */
+  /** Poids de tirage d'une question (révision de Leitner). */
   weightOf: (q: Question) => number = () => 1;
+  /** Appelé à chaque réponse corrigée (mise à jour des boîtes de Leitner). */
+  onRecord?: (q: Question, v: Verdict) => void;
 
   constructor(content: Content, settings: Settings, state: RunState) {
     this.content = content;
@@ -212,14 +244,28 @@ export class Game {
   }
 
   /** Démarre une nouvelle partie à partir d'une graine. */
-  static newRun(content: Content, settings: Settings, seed: string, now = Date.now()): Game {
+  static newRun(content: Content, settings: Settings, seed: string, now = Date.now(), opts: { character?: string; ascension?: number } = {}): Game {
     const rng = new Rng(seed);
     const p = content.sequence.player;
+    const chars = content.sequence.characters;
+    const ch = chars.find(c => c.id === opts.character) ?? chars.find(c => c.unlock.type === 'default') ?? chars[0];
+    const asc = Math.max(0, Math.min(MAX_ASCENSION, opts.ascension ?? 0));
+    const inv: Record<string, number> = { ...p.startItems };
+    if (asc >= 3) {
+      // Calavera 3 : une aide de départ en moins
+      const last = Object.keys(inv).filter(k => inv[k] > 0).pop();
+      if (last) inv[last]--;
+    }
+    for (const [id, n] of Object.entries(ch?.bonus.items ?? {})) inv[id] = (inv[id] ?? 0) + n;
+    const relics: Record<string, number> = { ...(ch?.bonus.relics ?? {}) };
+    const hp = Math.max(5, p.hp + (ch?.bonus.hp ?? 0) - (asc >= 9 ? 3 : 0));
     const state: RunState = {
-      v: 2, seed, rng: rng.state, screen: 'map', hp: p.hp, maxHp: p.hp, gold: 0, act: 0,
+      v: 3, seed, rng: rng.state, screen: 'map', hp, maxHp: hp, gold: 0, act: 0,
+      character: ch?.id ?? '', ascension: asc, bonus: { writeShare: ch?.bonus.writeShare ?? 0, restHeal: ch?.bonus.restHeal ?? 0.3 },
+      defeated: [], obtained: Object.keys(relics),
       map: generateMap(rng, content.sequence.map), node: null, path: [],
-      inv: { ...p.startItems }, relics: {}, upgrades: {}, streak: 0, poison: 0, reviveUsed: false, luckyCount: 0,
-      stats: { ok: 0, ko: 0, casi: 0, won: 0, written: 0, turns: 0, rooms: 0, startedAt: now, endedAt: 0 },
+      inv, relics, upgrades: {}, streak: 0, poison: 0, reviveUsed: false, luckyCount: 0,
+      stats: { ok: 0, ko: 0, casi: 0, won: 0, written: 0, turns: 0, rooms: 0, startedAt: now, endedAt: 0, maxStreak: 0, perfectFights: 0, powersUsed: 0 },
       seen: {}, retry: [], errors: [], metEnemies: [], seenEvents: [],
       combat: null, offer: null, offerKind: null, event: null, chest: null, rest: null, result: null,
     };
@@ -464,7 +510,9 @@ export class Game {
 
   /** Part de base des réponses écrites hors règles spéciales. */
   private writeChance(boost = 0): number {
-    return Math.min(1, (this.act.writeShare + boost) * this.settings.writeFactor);
+    const s = this.state;
+    const extra = s.bonus.writeShare + (s.ascension >= 8 ? 0.15 : 0);
+    return Math.min(1, (this.act.writeShare + boost + extra) * this.settings.writeFactor);
   }
 
   private makeAsked(q: Question, mode: Mode, again = false): Asked {
@@ -493,6 +541,8 @@ export class Game {
   /** Enregistre le résultat d'une réponse (statistiques, carnet, revanche). */
   private record(q: Question, v: Verdict, given: string | null, mode: Mode) {
     const s = this.state;
+    this.onRecord?.(q, v);
+    if (v !== 'ok' && s.screen === 'combat' && s.combat) s.combat.errors++;
     if (v === 'ok') {
       s.stats.ok++;
       if (mode === 'write') s.stats.written++;
@@ -550,10 +600,12 @@ export class Game {
     s.offerKind = null;
     s.poison = 0;
     const abanico = e.phases?.[0]?.abanico ?? 0;
+    const a = s.ascension;
+    const hp = e.hp + (a >= 1 ? 1 : 0) + (a >= 4 && e.kind === 'elite' ? 2 : 0) + (a >= 7 && (e.kind === 'jefe' || e.kind === 'final') ? 3 : 0) + (a >= 10 && e.kind === 'final' ? 6 : 0);
     s.combat = {
-      enemyId: e.id, hp: e.hp, maxHp: e.hp, shield: 0, abanico: this.settings.writeFactor > 0 ? abanico : 0,
+      enemyId: e.id, hp, maxHp: hp, shield: 0, abanico: this.settings.writeFactor > 0 ? abanico : 0,
       phase: 0, turn: 0, intent: { kind: 'attack' }, canceled: false, attackBonus: e.phases?.[0]?.attackBonus ?? 0, weakTheme: null,
-      juicio: false, vanishUsed: false, firstErrorUsed: false, freeTranslateUsed: false, rowCorrect: 0, fog: false,
+      juicio: false, vanishUsed: false, firstErrorUsed: false, freeTranslateUsed: false, rowCorrect: 0, errors: 0, fog: false,
       q: { id: '', mode: 'qcm', options: [] }, fb: null, used: {}, hidden: [], mask: '', timeMax: 0, timeLeft: 0,
     };
     this.nextTurn();
@@ -654,6 +706,7 @@ export class Game {
       if (q.type === 'ecoute') sec += 6;
       sec += this.relicValue('slowTime', 10);
       if (e.modifier === 'prisa') sec *= 0.5;
+      if (s.ascension >= 2) sec -= 3;
       sec *= this.settings.chronoFactor;
       if (c.intent.kind === 'rush' && !c.canceled) sec -= c.intent.value ?? 5;
       sec = Math.max(6, Math.round(sec));
@@ -703,6 +756,7 @@ export class Game {
       let dmg = 1 + this.relicValue('damageBonus');
       if (counts) {
         s.streak++;
+        s.stats.maxStreak = Math.max(s.stats.maxStreak, s.streak);
         c.rowCorrect++;
         if (how !== 'oracle') this.record(q, 'ok', value, c.q.mode);
         if (written) {
@@ -856,7 +910,9 @@ export class Game {
       fb.lines.push(`L'encens apaise ${e.name} : il ne fait rien ce tour-ci.`);
       return;
     }
-    let dmg = (it.kind === 'attack' ? it.value ?? e.attack : e.attack) + c.attackBonus + (this.relicCount('slowTime') ? 1 : 0);
+    const a = s.ascension;
+    const ascAtk = (a >= 4 && e.kind === 'elite' ? 1 : 0) + (a >= 10 && e.kind === 'final' ? 1 : 0);
+    let dmg = (it.kind === 'attack' ? it.value ?? e.attack : e.attack) + c.attackBonus + ascAtk + (this.relicCount('slowTime') ? 1 : 0);
     if (c.juicio) {
       dmg *= 2;
       fb.lines.push('Juicio : la sentence est doublée !');
@@ -929,7 +985,9 @@ export class Game {
   private winFight() {
     const s = this.state, e = this.enemy!;
     s.stats.won++;
-    s.gold += e.kind === 'normal' ? 3 : e.kind === 'elite' ? 5 : 8;
+    if (!s.defeated.includes(e.id)) s.defeated.push(e.id);
+    if (this.state.combat && this.state.combat.errors === 0) s.stats.perfectFights++;
+    s.gold += (e.kind === 'normal' ? 3 : e.kind === 'elite' ? 5 : 8) - (s.ascension >= 5 ? 1 : 0);
     const h = this.relicValue('healAfterFight', 2);
     if (h) s.hp = Math.min(s.maxHp, s.hp + h);
     s.poison = 0;
@@ -985,6 +1043,7 @@ export class Game {
   private gain(id: string) {
     const it = this.itemById.get(id)!;
     const s = this.state;
+    if (!s.obtained.includes(id)) s.obtained.push(id);
     if (it.kind === 'reliquia') {
       s.relics[id] = (s.relics[id] ?? 0) + 1;
       if (it.effect === 'maxHp') {
@@ -1046,7 +1105,8 @@ export class Game {
   /* ======================= Ofrenda (repos) ======================= */
 
   restHealAmount(): number {
-    return Math.ceil(this.state.maxHp * 0.3);
+    const s = this.state;
+    return Math.ceil(s.maxHp * Math.max(0.1, s.bonus.restHeal - (s.ascension >= 6 ? 0.1 : 0)));
   }
 
   /** Aides possédées qui peuvent être améliorées. */
@@ -1249,6 +1309,7 @@ export class Game {
 
   usePower(id: string): boolean {
     if (this.powerBlock(id)) return false;
+    this.state.stats.powersUsed++;
     const s = this.state, c = s.combat, it = this.itemById.get(id)!, q = this.question;
     const up = this.isUpgraded(id);
     const consume = () => {

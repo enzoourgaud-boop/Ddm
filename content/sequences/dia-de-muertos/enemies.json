@@ -20,7 +20,8 @@
         "kind": "attack"
       }
     ],
-    "taunt": "¡Mi mecha es muy corta!"
+    "taunt": "¡Mi mecha es muy corta!",
+    "phrase": "La vela está en el altar."
   },
   {
     "id": "calaverita",
@@ -43,7 +44,8 @@
         "kind": "attack"
       }
     ],
-    "taunt": "¡Soy de azúcar, pero muy dura!"
+    "taunt": "¡Soy de azúcar, pero muy dura!",
+    "phrase": "La calavera es de azúcar."
   },
   {
     "id": "pan-de-muerto",
@@ -66,7 +68,8 @@
         "value": 2
       }
     ],
-    "taunt": "¡Estoy saliendo del horno!"
+    "taunt": "¡Estoy saliendo del horno!",
+    "phrase": "El pan de muerto está en la mesa."
   },
   {
     "id": "papel-picado",
@@ -87,7 +90,8 @@
         "value": 2
       }
     ],
-    "taunt": "¡El viento me lleva tus monedas!"
+    "taunt": "¡El viento me lleva tus monedas!",
+    "phrase": "El papel picado está arriba."
   },
   {
     "id": "pinata-furiosa",
@@ -112,7 +116,8 @@
         "value": 3
       }
     ],
-    "taunt": "¡Aquí solo se escribe!"
+    "taunt": "¡Aquí solo se escribe!",
+    "phrase": "Los niños están bailando en la fiesta."
   },
   {
     "id": "alebrije",
@@ -139,7 +144,8 @@
         "value": 4
       }
     ],
-    "taunt": "¡Cambio de color! ¿Qué tema me hace daño hoy?"
+    "taunt": "¡Cambio de color! ¿Qué tema me hace daño hoy?",
+    "phrase": "El alebrije está volando."
   },
   {
     "id": "xoloitzcuintle",
@@ -161,7 +167,8 @@
         "kind": "stealItem"
       }
     ],
-    "taunt": "¡Grrr! Huelo tus poderes…"
+    "taunt": "¡Grrr! Huelo tus poderes…",
+    "phrase": "El perro está durmiendo junto a la tumba."
   },
   {
     "id": "lechuza",
@@ -184,7 +191,8 @@
         "kind": "listen"
       }
     ],
-    "taunt": "¡Uuuh! ¿Me oyes en la noche?"
+    "taunt": "¡Uuuh! ¿Me oyes en la noche?",
+    "phrase": "La lechuza está en el cementerio."
   },
   {
     "id": "esqueleto-musico",
@@ -203,7 +211,8 @@
         "kind": "attack"
       }
     ],
-    "taunt": "¡Más fuerte, más fuerte!"
+    "taunt": "¡Más fuerte, más fuerte!",
+    "phrase": "El esqueleto está tocando la trompeta."
   },
   {
     "id": "cruz-florida",
@@ -228,7 +237,8 @@
         "value": 2
       }
     ],
-    "taunt": "Mis flores me protegen."
+    "taunt": "Mis flores me protegen.",
+    "phrase": "En la cruz hay flores de cempasúchil."
   },
   {
     "id": "mariachi-de-huesos",
@@ -254,7 +264,8 @@
         "value": 4
       }
     ],
-    "taunt": "¡Rápido, rápido, que la canción se acaba!"
+    "taunt": "¡Rápido, rápido, que la canción se acaba!",
+    "phrase": "Los esqueletos están cantando."
   },
   {
     "id": "mictlantecuhtli",
@@ -282,7 +293,8 @@
         "kind": "attack"
       }
     ],
-    "taunt": "Cada tres preguntas, te juzgo."
+    "taunt": "Cada tres preguntas, te juzgo.",
+    "phrase": "Lleva una corona en la cabeza."
   },
   {
     "id": "alma-errante",
@@ -305,7 +317,8 @@
         "value": 6
       }
     ],
-    "taunt": "¿Dónde estoy? ¡Aquí no!"
+    "taunt": "¿Dónde estoy? ¡Aquí no!",
+    "phrase": "Las almas visitan a sus familiares."
   },
   {
     "id": "mariposa-negra",
@@ -328,7 +341,8 @@
         "kind": "fog"
       }
     ],
-    "taunt": "Mis alas brillan con tus monedas."
+    "taunt": "Mis alas brillan con tus monedas.",
+    "phrase": "La mariposa está volando."
   },
   {
     "id": "serpiente",
@@ -352,7 +366,8 @@
         "value": 3
       }
     ],
-    "taunt": "Sssss… mi veneno es lento."
+    "taunt": "Sssss… mi veneno es lento.",
+    "phrase": "La serpiente está en el camino."
   },
   {
     "id": "jaguar-obsidiana",
@@ -377,7 +392,8 @@
         "value": 3
       }
     ],
-    "taunt": "En la niebla, no hay chuleta."
+    "taunt": "En la niebla, no hay chuleta.",
+    "phrase": "El jaguar está a la derecha."
   },
   {
     "id": "catrina",
@@ -466,6 +482,7 @@
         ],
         "message": "Dernière danse ! Chrono fixe, coups plus forts. Une série de 3 la fait tituber (dégâts doublés)."
       }
-    ]
+    ],
+    "phrase": "La Catrina lleva un sombrero."
   }
 ]

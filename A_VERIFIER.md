@@ -91,3 +91,12 @@ Toutes viennent de tes documents (texte, P2, P3, fiche ESTAR + GERUNDIO, outils 
 
 ### Remettre dans l'ordre (`questions/ordre.json`, 24 phrases)
 - ☐ Phrases reprises du texte, de P2, de P3, de la fiche ESTAR + GERUNDIO et des outils de description. Certaines contiennent une étiquette piège (ex. « leiendo » à côté de « leyendo »).
+
+## 8. Ajouts de l'étape 4 (à relire)
+
+### Cartes de lotería (`enemies.json` et `items.json`, champ `phrase`)
+Chaque carte porte une petite phrase d'exemple en espagnol, inventée avec le vocabulaire de la séquence (« La vela está en el altar », « El esqueleto está tocando la trompeta », « La Catrina lleva un sombrero »…).
+- ☐ Relis les 42 phrases : niveau A1-A2, sans affirmation culturelle nouvelle.
+
+### Personnages (`sequence.json`, rubrique `characters`)
+- ☐ Valentina (la ofrendera), Mateo (el trompetista), Luz (la poeta). La description de Luz parle de « vers pour les défunts », une allusion aux *calaveritas literarias* (validée à l'étape 1).

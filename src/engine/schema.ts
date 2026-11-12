@@ -205,6 +205,8 @@ export const EnemySchema = z
     phases: z.array(PhaseSchema).optional(),
     /** Thème imposé par le trait « juicio » (une question sur trois). */
     focusTheme: z.string().optional(),
+    /** Phrase d'exemple en espagnol, au dos de la carte de lotería. */
+    phrase: z.string().optional(),
     taunt: z.string().optional(),
   })
   .strict();
@@ -236,6 +238,9 @@ export const ItemSchema = z
     description: z.string(),
     /** Texte de la version améliorée (aides seulement, via l'Ofrenda). */
     upgrade: z.string().optional(),
+    /** Numéro de carte de lotería et phrase d'exemple. */
+    card: z.number().int().min(1).max(99).optional(),
+    phrase: z.string().optional(),
   })
   .strict();
 export type Item = z.infer<typeof ItemSchema>;
@@ -372,6 +377,35 @@ export const SequenceSchema = z
       z.enum(['combat', 'elite', 'shop', 'rest', 'event', 'chest', 'boss']),
       z.object({ name: z.string(), emoji: z.string(), help: z.string(), text: z.string().optional() }).strict(),
     ),
+    characters: z
+      .array(
+        z
+          .object({
+            id: idSchema,
+            name: z.string(),
+            title: z.string(),
+            emoji: z.string(),
+            description: z.string(),
+            bonus: z
+              .object({
+                hp: z.number().int().optional(),
+                items: z.record(z.string(), z.number().int()).optional(),
+                relics: z.record(z.string(), z.number().int()).optional(),
+                writeShare: z.number().optional(),
+                restHeal: z.number().min(0).max(1).optional(),
+              })
+              .strict(),
+            /** Couleurs du sprite (lettres du dessin pixel → couleur). */
+            palette: z.record(z.string(), z.string()).default({}),
+            unlock: z.discriminatedUnion('type', [
+              z.object({ type: z.literal('default') }).strict(),
+              z.object({ type: z.literal('boss'), value: z.string(), label: z.string() }).strict(),
+              z.object({ type: z.literal('wins'), value: z.number().int().positive(), label: z.string() }).strict(),
+            ]),
+          })
+          .strict(),
+      )
+      .min(1),
     meal: z.object({ name: z.string(), emoji: z.string(), price: z.number().int(), heal: z.number().int(), description: z.string() }).strict(),
     feedback: z
       .object({
@@ -387,6 +421,7 @@ export const SequenceSchema = z
 export type Sequence = z.infer<typeof SequenceSchema>;
 export type Act = Sequence['acts'][number];
 export type Theme = Sequence['themes'][number];
+export type Character = Sequence['characters'][number];
 
 /** Contenu complet, validé, prêt pour le moteur. */
 export interface Content {

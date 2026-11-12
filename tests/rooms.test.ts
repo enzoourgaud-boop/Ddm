@@ -8,12 +8,14 @@ type Internal = { enterRoom(t: string): void; startFight(id: string): void; stat
 const room = (g: Game, t: string) => (g as unknown as Internal).enterRoom(t);
 
 describe('salles hors combat', () => {
-  it('Ofrenda : se reposer soigne 30 % des PV max', () => {
+  it('Ofrenda : se reposer soigne selon le personnage (30 % par défaut, 40 % pour Valentina)', () => {
     const g = Game.newRun(content(), S, 'REST-1');
     g.state.hp = 3;
     room(g, 'rest');
     g.restHeal();
-    expect(g.state.hp).toBe(3 + Math.ceil(g.state.maxHp * 0.3));
+    expect(g.state.hp).toBe(3 + Math.ceil(g.state.maxHp * 0.4));
+    const m = Game.newRun(content(), S, 'REST-1b', 0, { character: 'mateo' });
+    expect(m.restHealAmount()).toBe(Math.ceil(m.state.maxHp * 0.3));
     g.roomContinue();
     expect(g.state.screen).toBe('map');
   });

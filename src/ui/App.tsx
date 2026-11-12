@@ -1,25 +1,22 @@
-/** Racine de l'application : chargement du contenu, sauvegarde, aiguillage des écrans. */
-import { useEffect, useMemo, useState } from 'preact/hooks';
+/** Racine : chargement du contenu, profils, sauvegarde, révision de Leitner, aiguillage des écrans. */
+import { useEffect, useMemo, useRef, useState } from 'preact/hooks';
 import { loadContent } from '../content/load';
 import { DEFAULT_SETTINGS, Game, type RunState, type Settings } from '../engine/game';
+import { applyRun, type Leitner, leitnerUpdate, leitnerWeight, type Meta, type Unlocks } from '../engine/meta';
 import { randomSeed } from '../engine/rng';
+import { profiles, type Profile } from '../profiles';
 import { storage } from '../storage';
 import { Combat } from './Combat';
 import { PapelPicado, useGame } from './components';
+import { AchievementsScreen, CarnetScreen, CollectionScreen, Over, ProfileScreen, Title } from './Menu';
 import { ChestScreen, EventScreen, MapScreen, RestScreen } from './Rooms';
-import { type Meta, Over, Reward, Shop, Title } from './screens';
+import { Reward, Shop } from './screens';
 import { Transition } from './Transition';
 
 const loaded = loadContent();
 
 function loadSettings(): Settings {
   return { ...DEFAULT_SETTINGS, ...storage.get<Partial<Settings>>('settings', {}) };
-}
-
-function loadSaved(): RunState | null {
-  const r = storage.get<RunState | null>('run', null);
-  if (!r || r.v !== 2 || r.screen === 'over') return null;
-  return r;
 }
 
 function urlSeed(): string {
@@ -50,39 +47,68 @@ export function App() {
   return <Main content={content} />;
 }
 
+type MenuScreen = 'title' | 'profiles' | 'collection' | 'achievements' | 'carnet';
+
 function Main({ content }: { content: NonNullable<typeof loaded.content> }) {
   const [settings, setSettingsState] = useState(loadSettings);
+  const [profile, setProfile] = useState<Profile | null>(() => profiles.current());
+  const [list, setList] = useState(() => profiles.list());
+  const [meta, setMeta] = useState<Meta | null>(() => (profile ? profiles.meta(profile.id) : null));
+  const leitner = useRef<Leitner>(profile ? profiles.leitner(profile.id) : {});
+  const [saved, setSaved] = useState<RunState | null>(() => (profile ? profiles.run(profile.id) : null));
   const [game, setGame] = useState<Game | null>(null);
-  const [saved, setSaved] = useState(loadSaved);
-  const [meta, setMeta] = useState<Meta>(() => storage.get<Meta>('meta', { bestWon: 0, wins: 0, runs: 0 }));
+  const [menu, setMenu] = useState<MenuScreen>('title');
+  const [unlocks, setUnlocks] = useState<Unlocks | null>(null);
   const [persistent, setPersistent] = useState(storage.persistent);
   const initialSeed = useMemo(urlSeed, []);
   useGame(game);
 
   useEffect(() => storage.onFailure(() => setPersistent(false)) as () => void, []);
 
-  // sauvegarde continue de la partie et bilan à la fin
+  const switchProfile = (p: Profile | null) => {
+    setProfile(p);
+    setList(profiles.list());
+    setMeta(p ? profiles.meta(p.id) : null);
+    leitner.current = p ? profiles.leitner(p.id) : {};
+    setSaved(p ? profiles.run(p.id) : null);
+    setGame(null);
+    setMenu('title');
+  };
+
+  /** Branche la révision de Leitner et la sauvegarde sur une partie. */
+  const attach = (g: Game) => {
+    if (!profile) return g;
+    const pid = profile.id;
+    g.weightOf = q => leitnerWeight(leitner.current, q.id);
+    g.onRecord = (q, v) => {
+      leitner.current = leitnerUpdate(leitner.current, q.id, v);
+      profiles.saveLeitner(pid, leitner.current);
+    };
+    return g;
+  };
+
+  // sauvegarde continue et bilan de fin
   useEffect(() => {
-    if (!game) return;
+    if (!game || !profile) return;
+    const pid = profile.id;
     let recorded = false;
     return game.subscribe(() => {
       const s = game.state;
       if (s.screen === 'over') {
-        storage.remove('run');
+        profiles.clearRun(pid);
         if (!recorded) {
           recorded = true;
-          setMeta(m => {
-            const next = { bestWon: Math.max(m.bestWon, s.stats.won), wins: m.wins + (s.result === 'win' ? 1 : 0), runs: m.runs + 1 };
-            storage.set('meta', next);
-            return next;
-          });
+          const before = profiles.meta(pid);
+          const r = applyRun(content, before, s, leitner.current, game.activeSynergies().length);
+          profiles.saveMeta(pid, r.meta);
+          setMeta(r.meta);
+          setUnlocks(r.unlocks);
         }
-      } else storage.set('run', s);
+      } else profiles.saveRun(pid, s);
     });
-  }, [game]);
+  }, [game, profile]);
 
-  // remonte en haut de page à chaque changement d'écran
-  const screen = game?.state.screen ?? 'title';
+  const screen = game?.state.screen ?? menu;
   const room = game ? `${game.state.act}-${game.state.node}` : '';
   useEffect(() => window.scrollTo({ top: 0 }), [screen, room]);
 
@@ -90,41 +116,85 @@ function Main({ content }: { content: NonNullable<typeof loaded.content> }) {
     setSettingsState(s);
     storage.set('settings', s);
   };
-  const start = (seed: string) => {
-    const g = Game.newRun(content, settings, seed || randomSeed());
-    storage.set('run', g.state);
+  const start = (o: { seed: string; character: string; ascension: number }) => {
+    if (!profile) return;
+    const g = attach(Game.newRun(content, settings, o.seed || randomSeed(), Date.now(), { character: o.character, ascension: o.ascension }));
+    profiles.saveRun(profile.id, g.state);
     setSaved(null);
+    setUnlocks(null);
     setGame(g);
   };
   const resume = () => {
-    if (!saved) return;
+    if (!saved || !profile) return;
     try {
       const g = new Game(content, settings, saved);
       if ((!g.enemy && saved.screen === 'combat') || !saved.map?.nodes) throw new Error('partie illisible');
-      setGame(g);
+      setGame(attach(g));
     } catch {
-      storage.remove('run');
+      profiles.clearRun(profile.id);
       setSaved(null);
     }
   };
   const toMenu = () => {
-    setSaved(loadSaved());
+    setSaved(profile ? profiles.run(profile.id) : null);
     setGame(null);
+    setMenu('title');
   };
+
+  // pas encore de profil : on en crée un
+  if (!profile || !meta || menu === 'profiles') {
+    return (
+      <>
+        <PapelPicado />
+        <main id="app">
+          <ProfileScreen
+            list={list}
+            current={profile?.id ?? null}
+            onPick={id => {
+              profiles.select(id);
+              switchProfile(profiles.current());
+            }}
+            onCreate={(name, avatar) => switchProfile(profiles.create(name, avatar))}
+            onDelete={id => {
+              profiles.remove(id);
+              const cur = profiles.current();
+              setList(profiles.list());
+              if (profile?.id === id) switchProfile(cur);
+            }}
+            onBack={profile ? () => setMenu('title') : undefined}
+          />
+        </main>
+      </>
+    );
+  }
 
   return (
     <>
       <PapelPicado />
-      {game && <Transition key={`${screen}-${room}`} />}
+      {game && game.state.screen !== 'combat' && <Transition key={`${screen}-${room}`} />}
       <main id="app">
         {!persistent && (
           <p class="banner" role="status">
             Ce navigateur bloque la sauvegarde : tu peux jouer, mais ta progression ne sera pas gardée sur cet appareil.
           </p>
         )}
-        {!game && (
-          <Title content={content} meta={meta} saved={saved} settings={settings} onSettings={setSettings} onStart={start} onResume={resume} initialSeed={initialSeed} />
+        {!game && menu === 'title' && (
+          <Title
+            content={content}
+            profile={profile}
+            meta={meta}
+            saved={saved}
+            settings={settings}
+            onSettings={setSettings}
+            onStart={start}
+            onResume={resume}
+            onNav={m => setMenu(m)}
+            initialSeed={initialSeed}
+          />
         )}
+        {!game && menu === 'collection' && <CollectionScreen content={content} meta={meta} onBack={() => setMenu('title')} />}
+        {!game && menu === 'achievements' && <AchievementsScreen meta={meta} onBack={() => setMenu('title')} />}
+        {!game && menu === 'carnet' && <CarnetScreen content={content} leitner={leitner.current} onBack={() => setMenu('title')} />}
         {game && game.state.screen === 'map' && <MapScreen game={game} />}
         {game && game.state.screen === 'combat' && <Combat game={game} />}
         {game && game.state.screen === 'event' && <EventScreen game={game} />}
@@ -132,7 +202,9 @@ function Main({ content }: { content: NonNullable<typeof loaded.content> }) {
         {game && game.state.screen === 'chest' && <ChestScreen game={game} />}
         {game && game.state.screen === 'reward' && <Reward game={game} />}
         {game && game.state.screen === 'shop' && <Shop game={game} />}
-        {game && game.state.screen === 'over' && <Over game={game} onMenu={toMenu} onReplay={() => start('')} />}
+        {game && game.state.screen === 'over' && (
+          <Over game={game} unlocks={unlocks} onMenu={toMenu} onReplay={() => start({ seed: '', character: game.state.character, ascension: game.state.ascension })} />
+        )}
         {game && game.state.screen !== 'over' && (
           <p>
             <button class="link" onClick={toMenu}>

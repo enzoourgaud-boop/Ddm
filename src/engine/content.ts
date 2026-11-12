@@ -165,6 +165,20 @@ export function checkCoherence(c: Content): Issue[] {
   }
   for (const id of Object.keys(c.sequence.player.startItems)) if (!items.has(id)) err('sequence.json › player.startItems', `objet inconnu « ${id} »`);
 
+  // cartes de lotería : numéros uniques entre ennemis et objets
+  for (const it of c.items) {
+    if (it.card === undefined) continue;
+    const o = cards.get(it.card);
+    if (o) err(`objet ${it.id}`, `numéro de carte ${it.card} déjà pris par ${o}`);
+    cards.set(it.card, it.id);
+  }
+  // personnages
+  for (const ch of c.sequence.characters) {
+    for (const id of [...Object.keys(ch.bonus.items ?? {}), ...Object.keys(ch.bonus.relics ?? {})]) if (!items.has(id)) err(`personnage ${ch.id}`, `objet inconnu « ${id} »`);
+    if (ch.unlock.type === 'boss' && !enemies.has(ch.unlock.value)) err(`personnage ${ch.id}`, `ennemi inconnu « ${ch.unlock.value} »`);
+  }
+  if (!c.sequence.characters.some(ch => ch.unlock.type === 'default')) err('sequence.json › characters', 'il faut au moins un personnage disponible dès le départ');
+
   // synergies
   for (const sy of c.synergies) {
     for (const id of sy.items) {
