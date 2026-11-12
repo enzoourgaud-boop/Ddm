@@ -5,7 +5,7 @@
 import { type AccentPolicy, autoHint, fillBlanks, maskAnswer, normalize, type Verdict } from './answer';
 import { type ActMap, generateMap, nodeById, reachable, type MapNode } from './map';
 import {
-  answerText, canonicalValue, fixedMode, givenText, isChoice, isWritable, judgeQuestion, type Mode, orderTokens, scissorsHint, STRONG_MODES, TF_OPTIONS,
+  answerText, canonicalValue, fixedMode, givenText, isChoice, isWritable, judgeQuestion, type Mode, orderTokens, questionWords, scissorsHint, STRONG_MODES, TF_OPTIONS,
 } from './questions';
 import { Rng } from './rng';
 import {
@@ -171,6 +171,8 @@ export interface RunState {
     maxStreak: number; perfectFights: number; powersUsed: number;
   };
   seen: Record<string, number>;
+  /** Dernières questions posées (les plus récentes à la fin), pour éviter les enchaînements trop proches. */
+  recent?: string[];
   retry: string[];
   errors: ErrorEntry[];
   metEnemies: string[];
@@ -203,6 +205,11 @@ export const ASCENSION_RULES: string[] = [
   '3 PV de moins au départ.',
   'Le jefe final a 6 PV et 1 attaque de plus.',
 ];
+
+/** Nombre de questions récentes comparées pour éviter les enchaînements proches. */
+export const RECENT_WINDOW = 6;
+/** Une question ratée ne revient pas avant ce nombre de questions. */
+export const RETRY_GAP = 6;
 
 const RARITY_WEIGHT: Record<Rarity, number> = { comun: 60, rara: 30, legendaria: 10 };
 const BOSS_RARITY_WEIGHT: Record<Rarity, number> = { comun: 15, rara: 55, legendaria: 30 };
@@ -241,6 +248,34 @@ export class Game {
     this.enemyById = new Map(content.enemies.map(e => [e.id, e]));
     this.itemById = new Map(content.items.map(i => [i.id, i]));
     this.eventById = new Map(content.events.map(e => [e.id, e]));
+    // mots importants de chaque question, sans les mots trop fréquents dans la banque
+    const raw = new Map(content.questions.map(q => [q.id, questionWords(q)]));
+    const df = new Map<string, number>();
+    for (const w of raw.values()) for (const x of w.all) df.set(x, (df.get(x) ?? 0) + 1);
+    const tooCommon = Math.max(12, content.questions.length * 0.06);
+    const keep = (set: Set<string>) => new Set([...set].filter(x => (df.get(x) ?? 0) <= tooCommon));
+    this.words = new Map([...raw].map(([id, w]) => [id, { all: keep(w.all), answer: keep(w.answer) }]));
+  }
+
+  private words: Map<string, { all: Set<string>; answer: Set<string> }>;
+
+  /** Deux questions sont « trop proches » si elles partagent 2 mots importants, ou si la réponse de l'une est dans l'autre. */
+  closeTo(a: string, b: string): boolean {
+    if (a === b) return true;
+    const A = this.words.get(a), B = this.words.get(b);
+    if (!A || !B) return false;
+    let shared = 0;
+    for (const w of A.all) if (B.all.has(w)) shared++;
+    if (shared >= 2) return true;
+    for (const w of A.answer) if (B.all.has(w)) return true;
+    for (const w of B.answer) if (A.all.has(w)) return true;
+    return false;
+  }
+
+  /** La question ressemble-t-elle à l'une des dernières posées ? */
+  private clashes(id: string, window = RECENT_WINDOW): boolean {
+    const r = this.state.recent ?? [];
+    return r.slice(-window).some(x => this.closeTo(id, x));
   }
 
   /** Démarre une nouvelle partie à partir d'une graine. */
@@ -497,10 +532,21 @@ export class Game {
       const any = this.content.questions.filter(q => this.isUsable(q));
       return this.rng.pick(any.length ? any : this.content.questions);
     }
+    // pour chaque thème : questions pas encore vues, puis sans ressemblance avec les dernières posées
+    const refine = (pool: Question[]) => {
+      const fresh = pool.filter(q => !s.seen[q.id]);
+      const base = fresh.length ? fresh : pool;
+      return { base, far: base.filter(q => !this.clashes(q.id)) };
+    };
     let chosen = this.rng.pick(withPool);
     if (o.weakTheme && this.rng.chance(0.4)) chosen = withPool.find(x => x.t === o.weakTheme) ?? chosen;
-    const fresh = chosen.pool.filter(q => !s.seen[q.id]);
-    const pool = fresh.length ? fresh : chosen.pool;
+    let { base, far } = refine(chosen.pool);
+    if (!far.length) {
+      // ce thème n'a plus que des questions trop proches : on essaie un autre thème
+      const other = this.rng.shuffle(withPool).map(x => refine(x.pool)).find(x => x.far.length);
+      if (other) ({ base, far } = other);
+    }
+    const pool = far.length ? far : base;
     return this.rng.weighted(pool, q => this.weightOf(q) * (TYPE_WEIGHT[q.type] ?? 1));
   }
 
@@ -516,7 +562,9 @@ export class Game {
   }
 
   private makeAsked(q: Question, mode: Mode, again = false): Asked {
-    this.state.seen[q.id] = (this.state.seen[q.id] ?? 0) + 1;
+    const s = this.state;
+    s.seen[q.id] = (s.seen[q.id] ?? 0) + 1;
+    s.recent = [...(s.recent ?? []), q.id].slice(-12);
     let options: string[] = [];
     if (mode === 'qcm' && isChoice(q)) options = this.rng.shuffle([q.answer, ...this.rng.shuffle(q.distractors).slice(0, 3)]);
     else if (mode === 'tf') options = [...TF_OPTIONS];
@@ -685,8 +733,14 @@ export class Game {
     let q: Question | undefined;
     let again = false;
     if (!forceNew && s.retry.length > 1 && e.kind !== 'final' && !c.juicio && this.rng.chance(0.3)) {
-      q = this.qById.get(s.retry.shift()!);
-      again = !!q;
+      // revanche : une question ratée, mais pas trop tôt et pas proche des dernières posées
+      const recent = s.recent ?? [];
+      const id = s.retry.find(r => !recent.slice(-RETRY_GAP).includes(r) && !this.clashes(r));
+      if (id) {
+        s.retry = s.retry.filter(r => r !== id);
+        q = this.qById.get(id);
+        again = !!q;
+      }
     }
     if (!q || !this.isUsable(q) || (this.writableOnly() && !this.canWrite(q)) || (c.intent.kind === 'listen' && q.type !== 'ecoute')) {
       q = this.pick(this.combatPickOpts(easier));

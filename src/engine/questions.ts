@@ -181,3 +181,45 @@ export function scissorsHint(q: Question, scenes: Scenes): string {
     default: return '';
   }
 }
+
+/* ---------- proximité entre questions (éviter les enchaînements qui se répondent) ---------- */
+
+const STOP = new Set(
+  ('para como pero porque cuando donde quien quienes cual cuales tiene tienen este esta esto estos estas ese esa eso '
+  + 'estoy estas esta estamos estais estan muy mucho muchos muchas otro otra todos todas sobre entre hasta desde '
+  + 'pour avec dans quel quelle quels quelles comment dit-on veut dire mot cette celui sont elle elles nous vous '
+  + 'leur leurs tres plus moins bien fait faire etre avoir traduis donne remets phrase ordre place objets scene '
+  + 'associe image chaque espagnol francais ecoute choisis entends question reponse bonne verdadero falso').split(' '),
+);
+
+/** Mot réduit à sa racine approximative : sans accent, sans « s » final, 6 lettres au plus. */
+function stem(w: string): string {
+  return w.replace(/s$/, '').slice(0, 6);
+}
+
+function wordsOf(text: string): string[] {
+  return text
+    .normalize('NFD')
+    .replace(/[̀-ͯ]/g, '')
+    .toLowerCase()
+    .split(/[^a-z0-9]+/)
+    .filter(w => w.length >= 4 && !STOP.has(w))
+    .map(stem);
+}
+
+/** Mots importants d'une question (énoncé + réponse + contenu propre au type). */
+export function questionWords(q: Question): { all: Set<string>; answer: Set<string> } {
+  let ans = '';
+  let extra = '';
+  switch (q.type) {
+    case 'association': ans = q.pairs.map(p => p[0]).join(' '); break;
+    case 'scene': ans = q.scene.items.map(i => i.object).join(' '); break;
+    case 'vrai-faux': ans = ''; break;
+    case 'ecoute': ans = q.answer; extra = q.say ?? ''; break;
+    case 'ordre': ans = q.answer; break;
+    default: ans = q.answer;
+  }
+  const answer = new Set(wordsOf(ans));
+  const all = new Set([...wordsOf(q.prompt), ...answer, ...wordsOf(extra)]);
+  return { all, answer };
+}
