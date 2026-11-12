@@ -2,7 +2,7 @@
 
 Roguelike éducatif pour réviser l'espagnol (5e, A1-A2) sur la séquence **Día de Muertos**. Il se joue dans le navigateur, sans serveur ni compte élève.
 
-> 🚧 **Étape 1 sur 6.** Le guide complet pour le professeur (mise en ligne sur GitHub Pages pas à pas, modification des questions sans programmer) arrivera à l'étape 6. Voir `docs/CONCEPTION.md` pour le plan.
+> 🚧 **Étape 2 sur 6.** Le guide complet pour le professeur (mise en ligne sur GitHub Pages pas à pas, modification des questions sans programmer) arrivera à l'étape 6. Voir `docs/CONCEPTION.md` pour le plan.
 
 ## Lancer le jeu sur ton ordinateur
 
@@ -30,7 +30,12 @@ Puis ouvre l'adresse affichée (en général http://localhost:5173).
 
 ## Où sont les questions ?
 
-`content/sequences/dia-de-muertos/questions/` : un fichier par thème (`vocabulario.json`, `conjugacion.json`, `gramatica.json`, `cultura.json`). Les ennemis sont dans `enemies.json`, les pouvoirs dans `items.json`, les réglages de la séquence dans `sequence.json`.
+`content/sequences/dia-de-muertos/questions/` : un fichier par thème (`vocabulario.json`, `conjugacion.json`, `gramatica.json`, `cultura.json`). Les autres fichiers du même dossier :
+- `enemies.json` : les ennemis et leurs comportements ;
+- `items.json` : les aides et les reliques ;
+- `synergies.json` : les ensembles de reliques ;
+- `events.json` : les événements en espagnol ;
+- `sequence.json` : les réglages de la séquence (actes, carte, noms des salles, repas du Tianguis…).
 
 Après toute modification, lance `npm run valider` : il indique précisément ce qui ne va pas.
 
@@ -38,4 +43,4 @@ Les informations culturelles qui ne viennent pas des documents de cours sont lis
 
 ## Partie « défi de classe »
 
-Ajoute `?graine=MOT-12` à l'adresse du jeu, ou tape une graine sur l'écran d'accueil. Toute la classe aura alors les mêmes ennemis dans le même ordre.
+Ajoute `?graine=MOT-12` à l'adresse du jeu, ou tape une graine sur l'écran d'accueil. Toute la classe aura alors la même carte et les mêmes salles.

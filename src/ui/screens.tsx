@@ -18,7 +18,6 @@ export function Title({ content, meta, saved, settings, onSettings, onStart, onR
   const seq = content.sequence;
   const [seed, setSeed] = useState(initialSeed);
   const bosses = seq.acts.map(a => ({ e: content.enemies.find(e => e.id === a.boss)!, c: a.color })).filter(x => x.e);
-  const total = seq.acts.length * 4;
   return (
     <section class="screen portada">
       <span class="lbl">{seq.tagline}</span>
@@ -40,7 +39,7 @@ export function Title({ content, meta, saved, settings, onSettings, onStart, onR
         </button>
         {meta.runs > 0 && (
           <span class="muted">
-            Ton record : {meta.bestWon}/{total} combats{meta.wins ? ` · ${meta.wins} victoire${meta.wins > 1 ? 's' : ''}` : ''}
+            Ton record : {meta.bestWon} combats gagnés{meta.wins ? ` · ${meta.wins} victoire${meta.wins > 1 ? 's' : ''}` : ''}
           </span>
         )}
       </div>
@@ -77,24 +76,20 @@ export function Title({ content, meta, saved, settings, onSettings, onStart, onR
 
 export function Reward({ game }: { game: Game }) {
   const s = game.state;
-  const nextId = s.rooms[s.act]?.[s.room + 1];
-  const next = nextId ? game.enemyDef(nextId) : null;
+  const kind = s.offerKind;
+  const nextAct = game.content.sequence.acts[s.act + 1];
   return (
     <section class="screen">
       <Hud game={game} />
-      <h2>¡Victoria! Choisis un pouvoir</h2>
+      <h2>{kind === 'jefe' ? '¡El jefe cae! Choisis une relique' : '¡Victoria! Choisis un pouvoir'}</h2>
       <p class="muted">
-        {s.offerKind === 'elite' ? "Récompense d'élite : une relique au choix. " : ''}
+        {kind === 'elite' ? "Récompense d'élite : une relique au choix. " : ''}
+        {kind === 'jefe' ? `Tu récupères des forces avant de partir vers ${nextAct?.name ?? 'la suite'}. ` : ''}
         Tu n'en gardes qu'un. Les aides se dépensent, les reliques durent toute la partie.
       </p>
-      {next?.kind === 'final' && (
+      {kind === 'jefe' && nextAct && game.enemyDef(nextAct.boss)?.kind === 'final' && (
         <div class="aviso">
-          <b>Attention, la {next.name.replace(/^La /, '')} t'attend.</b> Elle a plusieurs phases : lis bien les messages quand elle change de style.
-        </div>
-      )}
-      {next?.kind === 'jefe' && (
-        <div class="aviso">
-          <b>Prochain combat : {next.name}, le jefe de l'acte.</b> {next.taunt}
+          <b>Dernier acte : {nextAct.name}.</b> {game.enemyDef(nextAct.boss)!.name} t'attend au bout du chemin. Elle a plusieurs phases : lis bien les messages quand elle change de style.
         </div>
       )}
       <div class="elige">
@@ -113,33 +108,30 @@ export function Reward({ game }: { game: Game }) {
 }
 
 export function Shop({ game }: { game: Game }) {
-  const s = game.state;
-  const next = game.content.sequence.acts[s.act + 1];
-  const G = Game;
-  const meal = s.hp < s.maxHp && s.gold >= G.MEAL_PRICE;
+  const s = game.state, seq = game.content.sequence;
+  const info = seq.rooms.shop, meal = seq.meal;
+  const canMeal = s.hp < s.maxHp && s.gold >= meal.price;
   return (
     <section class="screen">
       <Hud game={game} />
-      <h2>El Tianguis</h2>
-      <p class="muted">
-        Le jefe est vaincu et tu récupères 3 PV. Ce petit marché vend des aides et des reliques : dépense tes monedas avant de partir vers {next?.name}.
-      </p>
+      <h2>{info?.name ?? 'Boutique'}</h2>
+      <p class="muted">{info?.text}</p>
       <div class="elige">
         {s.offer!.map((o, i) => {
           const it = game.item(o.id)!;
           return <ItemCard key={o.id + i} item={it} price={it.price} sold={o.sold} disabled={o.sold || s.gold < it.price} onClick={() => game.buy(i)} />;
         })}
-        <button class="item" onClick={() => game.buyMeal()} disabled={!meal}>
-          <span class="ico" aria-hidden="true">🫔</span>
-          <span class="tp">Repas</span>
-          <span class="nm">Tamales</span>
-          <span class="ds">Rend {G.MEAL_HEAL} points de vie.</span>
-          <span class="px">🪙 {G.MEAL_PRICE}</span>
+        <button class="item" onClick={() => game.buyMeal()} disabled={!canMeal}>
+          <span class="ico" aria-hidden="true">{meal.emoji}</span>
+          <span class="tp">Repas (plusieurs fois possible)</span>
+          <span class="nm">{meal.name}</span>
+          <span class="ds">{meal.description}</span>
+          <span class="px">🪙 {meal.price}</span>
         </button>
       </div>
       <div>
         <button class="btn" onClick={() => game.leaveShop()}>
-          Partir vers {next?.name}
+          Reprendre le chemin
         </button>
       </div>
       <Powers game={game} inCombat={false} />
@@ -152,7 +144,6 @@ export function Over({ game, onMenu, onReplay }: { game: Game; onMenu: () => voi
   const win = s.result === 'win';
   const tot = s.stats.ok + s.stats.ko + s.stats.casi;
   const pct = tot ? Math.round((100 * s.stats.ok) / tot) : 0;
-  const total = s.rooms.reduce((n, r) => n + r.length, 0);
   const minutes = Math.max(1, Math.round((s.stats.endedAt - s.stats.startedAt) / 60000));
   const enemy = game.enemy;
   return (
@@ -165,10 +156,14 @@ export function Over({ game, onMenu, onReplay }: { game: Game; onMenu: () => voi
       </p>
       <div class="stats">
         <div>
-          <b>
-            {s.stats.won}/{total}
-          </b>
+          <b>{s.stats.won}</b>
           combats gagnés
+        </div>
+        <div>
+          <b>
+            {s.result === 'win' ? seq.acts.length : s.act + 1}/{seq.acts.length}
+          </b>
+          {s.result === 'win' ? 'actes terminés' : 'acte atteint'}
         </div>
         <div>
           <b>{s.stats.ok}</b>bonnes réponses
@@ -184,7 +179,7 @@ export function Over({ game, onMenu, onReplay }: { game: Game; onMenu: () => voi
         </div>
       </div>
       <p class="muted">
-        Graine de la partie : <b>{s.seed}</b>
+        Graine de la partie : <b>{s.seed}</b> · {s.stats.rooms} salles traversées
       </p>
       <div class="fila">
         <button class="btn" onClick={onReplay}>

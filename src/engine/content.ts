@@ -1,6 +1,6 @@
 /** Validation et contrôles de cohérence du contenu, partagés par le jeu et le script `npm run valider`. */
 import {
-  type Content, EnemySchema, ItemSchema, QuestionSchema, SequenceSchema, type Question,
+  type Content, EnemySchema, EventSchema, ItemSchema, QuestionSchema, SequenceSchema, SynergySchema, type EventOutcome, type Question,
 } from './schema';
 import { normalize } from './answer';
 import { z } from 'zod';
@@ -20,6 +20,8 @@ export interface RawContent {
   questions: { file: string; data: unknown }[];
   enemies: unknown;
   items: unknown;
+  events: unknown;
+  synergies: unknown;
 }
 
 /** Valide le contenu brut. Les questions invalides sont écartées (le jeu reste jouable), mais signalées. */
@@ -31,6 +33,10 @@ export function parseContent(raw: RawContent): { content: Content | null; issues
   if (!enemies.success) issues.push(...zodIssues('enemies.json', enemies.error));
   const items = z.array(ItemSchema).safeParse(raw.items);
   if (!items.success) issues.push(...zodIssues('items.json', items.error));
+  const events = z.array(EventSchema).safeParse(raw.events ?? []);
+  if (!events.success) issues.push(...zodIssues('events.json', events.error));
+  const synergies = z.array(SynergySchema).safeParse(raw.synergies ?? []);
+  if (!synergies.success) issues.push(...zodIssues('synergies.json', synergies.error));
 
   const questions: Question[] = [];
   for (const { file, data } of raw.questions) {
@@ -45,8 +51,10 @@ export function parseContent(raw: RawContent): { content: Content | null; issues
       else issues.push(...zodIssues(`${file} › ${id}`, r.error));
     });
   }
-  if (!seq.success || !enemies.success || !items.success) return { content: null, issues };
-  const content: Content = { sequence: seq.data, enemies: enemies.data, items: items.data, questions };
+  if (!seq.success || !enemies.success || !items.success || !events.success || !synergies.success) return { content: null, issues };
+  const content: Content = {
+    sequence: seq.data, enemies: enemies.data, items: items.data, questions, events: events.data, synergies: synergies.data,
+  };
   issues.push(...checkCoherence(content));
   return { content, issues };
 }
@@ -116,5 +124,34 @@ export function checkCoherence(c: Content): Issue[] {
     for (const id of a.elites) if (enemies.get(id) && enemies.get(id)!.kind !== 'elite') err(`acte ${a.id}`, `« ${id} » n'est pas un élite`);
   }
   for (const id of Object.keys(c.sequence.player.startItems)) if (!items.has(id)) err('sequence.json › player.startItems', `objet inconnu « ${id} »`);
+
+  // synergies
+  for (const sy of c.synergies) {
+    for (const id of sy.items) {
+      const it = c.items.find(i => i.id === id);
+      if (!it) err(`synergie ${sy.id}`, `objet inconnu « ${id} »`);
+      else if (it.kind !== 'reliquia') err(`synergie ${sy.id}`, `« ${id} » doit être une relique`);
+    }
+  }
+
+  // événements
+  const checkOutcome = (where: string, o: EventOutcome) => {
+    for (const e of o.effects) {
+      if (e.type === 'item' && e.id && !items.has(e.id)) err(where, `objet inconnu « ${e.id} »`);
+      if (e.type === 'random') e.outcomes.forEach(x => x.effects.forEach(f => f.type === 'item' && f.id && !items.has(f.id) && err(where, `objet inconnu « ${f.id} »`)));
+    }
+  };
+  const evIds = new Set<string>();
+  for (const ev of c.events) {
+    const w = `événement ${ev.id}`;
+    if (evIds.has(ev.id)) err(w, 'identifiant en double');
+    evIds.add(ev.id);
+    for (const a of ev.acts ?? []) if (a > c.sequence.acts.length) err(w, `acte ${a} inexistant`);
+    ev.choices.forEach((ch, i) => {
+      for (const t of ch.quiz?.themes ?? []) if (!themes.has(t)) err(`${w} › choix ${i + 1}`, `thème inconnu « ${t} »`);
+      for (const o of [ch.outcome, ch.success, ch.failure]) if (o) checkOutcome(`${w} › choix ${i + 1}`, o);
+    });
+  }
+  if (!c.events.length) warn('events.json', 'aucun événement : les salles « Evento » seront remplacées par des combats');
   return out;
 }

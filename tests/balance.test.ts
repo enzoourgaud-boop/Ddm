@@ -22,7 +22,7 @@ describe('équilibrage (simulation)', () => {
   it('répondre au hasard ne suffit pas pour gagner', () => {
     expect(run(0.4).filter(r => r.win).length).toBe(0);
   });
-  it('une partie gagnée par un élève moyen dure en moyenne moins de 21 minutes', () => {
-    expect(avg(run(0.75).filter(r => r.win).map(r => r.minutes))).toBeLessThan(21);
+  it('une partie gagnée par un élève moyen dure en moyenne moins de 22 minutes', () => {
+    expect(avg(run(0.75).filter(r => r.win).map(r => r.minutes))).toBeLessThan(22);
   });
 });

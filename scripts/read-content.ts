@@ -1,5 +1,5 @@
 /** Lecture du contenu depuis le disque (scripts Node et tests). */
-import { readFileSync, readdirSync } from 'node:fs';
+import { existsSync, readFileSync, readdirSync } from 'node:fs';
 import { join } from 'node:path';
 import type { RawContent } from '../src/engine/content';
 
@@ -21,6 +21,8 @@ export function readSequence(id: string): RawContent {
     sequence: readJson(join(dir, 'sequence.json')),
     enemies: readJson(join(dir, 'enemies.json')),
     items: readJson(join(dir, 'items.json')),
+    events: existsSync(join(dir, 'events.json')) ? readJson(join(dir, 'events.json')) : [],
+    synergies: existsSync(join(dir, 'synergies.json')) ? readJson(join(dir, 'synergies.json')) : [],
     questions: readdirSync(qdir)
       .filter(f => f.endsWith('.json'))
       .sort()

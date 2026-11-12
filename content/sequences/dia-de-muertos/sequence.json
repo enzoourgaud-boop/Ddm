@@ -218,5 +218,67 @@
     "casi": "¡Casi!",
     "timeout": "¡Se acabó el tiempo!",
     "oracle": "El Oráculo ha hablado"
+  },
+  "map": {
+    "floors": 6,
+    "width": [
+      3,
+      4
+    ],
+    "restFloor": 4,
+    "weights": {
+      "combat": 45,
+      "event": 24,
+      "elite": 10,
+      "shop": 9,
+      "chest": 9,
+      "rest": 3
+    }
+  },
+  "rooms": {
+    "combat": {
+      "name": "Combate",
+      "emoji": "⚔️",
+      "help": "Un ennemi de l'acte. Récompense : un pouvoir au choix."
+    },
+    "elite": {
+      "name": "Élite",
+      "emoji": "💀",
+      "help": "Un ennemi coriace avec une règle spéciale. Récompense : une relique."
+    },
+    "shop": {
+      "name": "El Tianguis",
+      "emoji": "🛒",
+      "help": "Le marché : achète des aides et des reliques avec tes monedas.",
+      "text": "Des étals de fleurs, de pan de muerto et de bougies. Les marchands acceptent tes monedas."
+    },
+    "rest": {
+      "name": "La Ofrenda",
+      "emoji": "🕯️",
+      "help": "Repos : soigne-toi ou améliore une aide.",
+      "text": "Une ofrenda illuminée de bougies. Tu peux t'y reposer, ou y déposer une aide pour la rendre plus puissante."
+    },
+    "event": {
+      "name": "Evento",
+      "emoji": "❓",
+      "help": "Une rencontre sur le chemin, en espagnol. À toi de choisir."
+    },
+    "chest": {
+      "name": "Cofre",
+      "emoji": "🎁",
+      "help": "Un coffre. Parfois fermé par une question."
+    },
+    "boss": {
+      "name": "Jefe",
+      "emoji": "👑",
+      "help": "Le jefe de l'acte."
+    }
+  },
+  "meal": {
+    "name": "Tamales",
+    "emoji": "🫔",
+    "price": 4,
+    "heal": 5,
+    "description": "Rend 5 points de vie."
   }
 }

@@ -5,31 +5,81 @@ import { simulate } from './sim';
 
 const S = { ...DEFAULT_SETTINGS };
 
+/** Partie démarrée directement sur un combat (contre l'ennemi donné, sinon le premier de la carte). */
+function fight(seed: string, settings = S, enemy?: string): Game {
+  const g = Game.newRun(content(), settings, seed);
+  if (enemy) (g as unknown as { startFight(id: string): void }).startFight(enemy);
+  else g.choose(g.reachable()[0].id);
+  return g;
+}
+
+/** Joue automatiquement toutes les salles jusqu'à la fin (bonnes réponses sauf si wrong(k)). */
+function autoplay(g: Game, max = 5000, wrong: (k: number) => boolean = () => false, onQuestion?: () => void) {
+  let k = 0;
+  for (let i = 0; i < max && g.state.screen !== 'over'; i++) {
+    const s = g.state;
+    const reply = (id: string, mode: string, options: string[]) => {
+      const q = g.getQuestion(id)!;
+      return wrong(k++) ? (mode === 'qcm' ? options.find(o => o !== q.answer)! : 'zzz') : q.answer;
+    };
+    if (s.screen === 'map') g.choose(g.reachable()[0].id);
+    else if (s.screen === 'combat') {
+      if (s.combat!.fb) g.proceed();
+      else {
+        onQuestion?.();
+        g.answer(reply(s.combat!.q.id, s.combat!.q.mode, s.combat!.q.options));
+      }
+    } else if (s.screen === 'reward') g.take(0);
+    else if (s.screen === 'shop') g.leaveShop();
+    else if (s.screen === 'rest') s.rest!.result ? g.roomContinue() : g.restHeal();
+    else if (s.screen === 'chest') {
+      const ch = s.chest!;
+      if (ch.result) g.roomContinue();
+      else if (ch.quiz) g.chestAnswer(reply(ch.quiz.q.id, ch.quiz.q.mode, ch.quiz.q.options));
+      else g.chestOpen();
+    } else if (s.screen === 'event') {
+      const st = s.event!;
+      if (st.result) g.eventContinue();
+      else if (st.quiz) g.eventAnswer(reply(st.quiz.q.id, st.quiz.q.mode, st.quiz.q.options));
+      else g.eventChoose(g.currentEvent!.choices.findIndex((_, i) => !g.choiceBlock(i)));
+    }
+  }
+}
+
 function wrongOf(g: Game) {
   const c = g.state.combat!, q = g.question!;
   return c.q.mode === 'qcm' ? c.q.options.find(o => o !== q.answer)! : 'zzz';
 }
 
 describe('moteur de partie', () => {
-  it('une nouvelle partie démarre en combat avec une question', () => {
+  it('une nouvelle partie démarre sur la carte, au pied du premier étage', () => {
     const g = Game.newRun(content(), S, 'TEST-1');
+    expect(g.state.screen).toBe('map');
+    expect(g.reachable().every(n => n.floor === 0 && n.type === 'combat')).toBe(true);
+    expect(g.state.hp).toBe(content().sequence.player.hp);
+    g.choose(g.reachable()[0].id);
     expect(g.state.screen).toBe('combat');
     expect(g.question).toBeTruthy();
-    expect(g.state.rooms).toHaveLength(3);
-    expect(g.state.hp).toBe(content().sequence.player.hp);
+  });
+
+  it('on ne peut pas sauter d’étage sur la carte', () => {
+    const g = Game.newRun(content(), S, 'TEST-2');
+    const far = g.state.map.nodes.find(n => n.floor === 2)!;
+    expect(g.choose(far.id)).toBe(false);
+    expect(g.state.screen).toBe('map');
   });
 
   it('même graine + mêmes réponses = même partie (reproductible)', () => {
     const a = simulate(content(), 'REPRO-7', 0.8);
     const b = simulate(content(), 'REPRO-7', 0.8);
     expect(a).toEqual(b);
-    const g1 = Game.newRun(content(), S, 'REPRO-7'), g2 = Game.newRun(content(), S, 'REPRO-7');
-    expect(g1.state.rooms).toEqual(g2.state.rooms);
+    const g1 = fight('REPRO-7'), g2 = fight('REPRO-7');
+    expect(g1.state.map).toEqual(g2.state.map);
     expect(g1.state.combat!.q).toEqual(g2.state.combat!.q);
   });
 
   it('une bonne réponse blesse l’ennemi, une erreur blesse le joueur', () => {
-    const g = Game.newRun(content(), S, 'HIT-1');
+    const g = fight('HIT-1');
     const hp0 = g.state.combat!.hp + g.state.combat!.shield;
     g.answer(g.question!.answer);
     const c = g.state.combat!;
@@ -46,7 +96,7 @@ describe('moteur de partie', () => {
   it('un accent oublié ne blesse personne', () => {
     // cherche une partie dont une question écrite contient un accent
     for (let i = 0; i < 400; i++) {
-      const g = Game.newRun(content(), { ...S, writeFactor: 10 }, `CASI-${i}`);
+      const g = fight(`CASI-${i}`, { ...S, writeFactor: 10 });
       const q = g.question!;
       if (g.state.combat!.q.mode !== 'write' || !/[áéíóú]/.test(q.answer)) continue;
       const hp = g.state.hp, ehp = g.state.combat!.hp;
@@ -60,7 +110,7 @@ describe('moteur de partie', () => {
   });
 
   it('le chrono écoulé compte comme une erreur', () => {
-    const g = Game.newRun(content(), S, 'TIME-1');
+    const g = fight('TIME-1');
     const hp = g.state.hp;
     g.tick(g.state.combat!.timeMax + 10);
     expect(g.state.combat!.fb!.outcome).toBe('timeout');
@@ -68,7 +118,7 @@ describe('moteur de partie', () => {
   });
 
   it('sans chrono, le temps ne s’écoule pas', () => {
-    const g = Game.newRun(content(), { ...S, chrono: false }, 'TIME-2');
+    const g = fight('TIME-2', { ...S, chrono: false });
     expect(g.state.combat!.timeMax).toBe(0);
     expect(g.tick(999999)).toBe(false);
     expect(g.state.combat!.fb).toBeNull();
@@ -76,26 +126,12 @@ describe('moteur de partie', () => {
 
   it('sans écrit, toutes les questions sont en QCM', () => {
     const g = Game.newRun(content(), { ...S, writeFactor: 0 }, 'QCM-1');
-    for (let i = 0; i < 40 && g.state.screen === 'combat'; i++) {
-      if (g.state.combat!.fb) {
-        g.proceed();
-        continue;
-      }
-      expect(g.state.combat!.q.mode).toBe('qcm');
-      g.answer(g.question!.answer);
-    }
+    autoplay(g, 600, () => false, () => expect(g.state.combat!.q.mode).toBe('qcm'));
   });
 
   it('les thèmes désactivés ne sont jamais posés', () => {
     const g = Game.newRun(content(), { ...S, themes: ['cultura'] }, 'THEME-1');
-    for (let i = 0; i < 40 && g.state.screen === 'combat'; i++) {
-      if (g.state.combat!.fb) {
-        g.proceed();
-        continue;
-      }
-      expect(g.question!.theme).toBe('cultura');
-      g.answer(g.question!.answer);
-    }
+    autoplay(g, 600, () => false, () => expect(g.question!.theme).toBe('cultura'));
   });
 
   it('les questions désactivées ne sont jamais posées', () => {
@@ -103,22 +139,12 @@ describe('moteur de partie', () => {
     expect(disabled.size).toBeGreaterThan(0);
     for (let i = 0; i < 30; i++) {
       const g = Game.newRun(content(), { ...S, themes: ['cultura'] }, `DIS-${i}`);
-      for (let k = 0; k < 60 && g.state.screen !== 'over'; k++) {
-        const s = g.state;
-        if (s.screen === 'combat') {
-          if (s.combat!.fb) g.proceed();
-          else {
-            expect(disabled.has(g.question!.id)).toBe(false);
-            g.answer(k % 3 ? g.question!.answer : 'zzz');
-          }
-        } else if (s.screen === 'reward') g.take(0);
-        else if (s.screen === 'shop') g.leaveShop();
-      }
+      autoplay(g, 200, k => k % 3 === 0, () => expect(disabled.has(g.question!.id)).toBe(false));
     }
   });
 
   it('l’Oráculo donne la réponse et blesse l’ennemi', () => {
-    const g = Game.newRun(content(), S, 'ORA-1');
+    const g = fight('ORA-1');
     g.state.inv.oraculo = 1;
     expect(g.usePower('oraculo')).toBe(true);
     expect(g.state.combat!.fb!.outcome).toBe('oracle');
@@ -127,7 +153,7 @@ describe('moteur de partie', () => {
 
   it('Tijeras retire deux mauvaises réponses en QCM', () => {
     for (let i = 0; i < 50; i++) {
-      const g = Game.newRun(content(), { ...S, writeFactor: 0 }, `TIJ-${i}`);
+      const g = fight(`TIJ-${i}`, { ...S, writeFactor: 0 });
       expect(g.usePower('tijeras')).toBe(true);
       const c = g.state.combat!;
       expect(c.hidden).toHaveLength(2);
@@ -137,7 +163,7 @@ describe('moteur de partie', () => {
   });
 
   it('l’Escudo bloque une attaque automatiquement', () => {
-    const g = Game.newRun(content(), S, 'ESC-1');
+    const g = fight('ESC-1');
     g.state.inv.escudo = 1;
     const hp = g.state.hp;
     g.answer(wrongOf(g));
@@ -146,10 +172,7 @@ describe('moteur de partie', () => {
   });
 
   it('un élite « Solo escrito » ne pose que des questions écrites', () => {
-    const c = content();
-    const g = Game.newRun(c, S, 'ELITE-1');
-    g.state.rooms[0][0] = 'pinata-furiosa';
-    (g as unknown as { startFight(): void }).startFight();
+    const g = fight('ELITE-1', S, 'pinata-furiosa');
     for (let i = 0; i < 15 && g.state.screen === 'combat'; i++) {
       if (g.state.combat!.fb) {
         g.proceed();
@@ -161,9 +184,7 @@ describe('moteur de partie', () => {
   });
 
   it('la Catrina change de phase quand ses PV baissent', () => {
-    const g = Game.newRun(content(), { ...S, writeFactor: 10 }, 'CAT-1');
-    g.state.rooms[0][0] = 'catrina';
-    (g as unknown as { startFight(): void }).startFight();
+    const g = fight('CAT-1', { ...S, writeFactor: 10 }, 'catrina');
     const seen = new Set<number>();
     for (let i = 0; i < 80 && g.state.screen === 'combat'; i++) {
       seen.add(g.state.combat!.phase);
@@ -175,9 +196,7 @@ describe('moteur de partie', () => {
   });
 
   it('l’abanico de la Catrina bloque les QCM', () => {
-    const g = Game.newRun(content(), { ...S, writeFactor: 0.0001 }, 'ABA-1');
-    g.state.rooms[0][0] = 'catrina';
-    (g as unknown as { startFight(): void }).startFight();
+    const g = fight('ABA-1', { ...S, writeFactor: 0.0001 }, 'catrina');
     const c = g.state.combat!;
     expect(c.abanico).toBeGreaterThan(0);
     if (c.q.mode === 'qcm') {
@@ -188,7 +207,7 @@ describe('moteur de partie', () => {
   });
 
   it('le pouvoir Cambio change la question sans pénalité', () => {
-    const g = Game.newRun(content(), S, 'CAM-1');
+    const g = fight('CAM-1');
     g.state.inv.cambio = 1;
     const id = g.state.combat!.q.id, hp = g.state.hp;
     g.usePower('cambio');
@@ -199,17 +218,15 @@ describe('moteur de partie', () => {
 
   it('la partie se joue jusqu’au bout et l’état reste sérialisable', () => {
     const g = Game.newRun(content(), S, 'FULL-1');
-    let guard = 0;
-    while (g.state.screen !== 'over' && guard++ < 5000) {
-      const s = g.state;
-      if (s.screen === 'combat') s.combat!.fb ? g.proceed() : g.answer(g.question!.answer);
-      else if (s.screen === 'reward') g.take(0);
-      else if (s.screen === 'shop') g.leaveShop();
+    const acts = new Set<number>();
+    for (let i = 0; i < 5000 && g.state.screen !== 'over'; i++) {
+      autoplay(g, 1);
+      acts.add(g.state.act);
       // la sauvegarde doit pouvoir être relue à tout moment
       const copy = JSON.parse(JSON.stringify(g.state));
       expect(new Game(content(), S, copy).state.screen).toBe(g.state.screen);
     }
     expect(g.state.result).toBe('win');
-    expect(g.state.stats.won).toBe(12);
+    expect([...acts]).toEqual([0, 1, 2]);
   });
 });

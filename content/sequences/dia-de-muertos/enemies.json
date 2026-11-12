@@ -5,7 +5,7 @@
     "emoji": "🕯️",
     "card": 5,
     "kind": "normal",
-    "hp": 5,
+    "hp": 4,
     "attack": 1,
     "pattern": "cycle",
     "intents": [
@@ -28,7 +28,7 @@
     "emoji": "💀",
     "card": 11,
     "kind": "normal",
-    "hp": 5,
+    "hp": 4,
     "attack": 1,
     "pattern": "cycle",
     "intents": [
@@ -51,7 +51,7 @@
     "emoji": "🍞",
     "card": 17,
     "kind": "normal",
-    "hp": 6,
+    "hp": 5,
     "attack": 1,
     "pattern": "random",
     "intents": [
@@ -74,7 +74,7 @@
     "emoji": "svg:papel-picado",
     "card": 8,
     "kind": "normal",
-    "hp": 5,
+    "hp": 4,
     "attack": 1,
     "pattern": "cycle",
     "intents": [
@@ -95,7 +95,7 @@
     "emoji": "🪅",
     "card": 20,
     "kind": "elite",
-    "hp": 8,
+    "hp": 7,
     "attack": 2,
     "modifier": "soloEscrito",
     "pattern": "cycle",
@@ -120,7 +120,7 @@
     "emoji": "🐉",
     "card": 23,
     "kind": "jefe",
-    "hp": 10,
+    "hp": 9,
     "attack": 2,
     "traits": [
       "colorShift"

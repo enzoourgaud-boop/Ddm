@@ -52,3 +52,21 @@ Ces noms ne sont pas posés en question. Ils servent d'habillage, mais les élè
 ## 5. Ce qui vient bien de tes documents (pour mémoire)
 
 Texte de compréhension (dates, origine maya et aztèque, États-Unis, fête de bienvenue, adjectifs, musique et danse) ; P2 (cimetières, prières, offrandes, déguisements) ; P3 (la Catrina, Posada, critique, déguisement) ; fiche ESTAR + GERUNDIO (toutes les formes et règles) ; outils de description d'image (izquierda, derecha, planos, hay, ser/estar, yo veo / podemos ver).
+
+## 6. Ajouts de l'étape 2 (à relire)
+
+### Événements (`content/sequences/dia-de-muertos/events.json`)
+Ce sont 13 petites scènes **inventées** en espagnol A1, sans affirmation culturelle nouvelle. Relis surtout la langue et le niveau :
+- ☐ `abuela-tamales` : une grand-mère prépare des tamales (plat déjà présent comme objet de soin).
+- ☐ `musico-baile`, `banda-esqueletos` : musiciens et squelettes qui jouent de la trompette, du tambour, des maracas.
+- ☐ `altar-sin-velas`, `foto-ofrenda` : un autel avec la photo d'un défunt (doc1, fiche « elementos »).
+- ☐ `tumba-flores` : une famille décore une tombe avec des fleurs de cempasúchil (P2).
+- ☐ `ninos-disfrazados` : des enfants déguisés en squelettes dans la rue (P2).
+- ☐ `panaderia` : une boulangerie vend du pain de muerto.
+- ☐ `loteria-plaza` : des gens jouent à la lotería sur la place (jeu de société mexicain, décor déjà validé).
+- ☐ `alebrije-trato`, `calavera-pregunta`, `mariposas`, `vendedor-esqueleto` : scènes fantastiques, sans affirmation culturelle.
+
+### Nouveaux objets (`items.json`)
+- ☐ Incienso (aide), Pan de muerto, Trompeta, Diccionario de bolsillo, Mapa de pétalos, Pluma de colibrí, Reloj de sol, Máscara, Calavera de la suerte, Lotería (reliques). Ce sont des noms d'objets, sans affirmation culturelle.
+- ☐ Ensemble « Ofrenda completa » (Vela + Cempasúchil + Pan de muerto) : il associe trois éléments de l'ofrenda vus en classe.
+- ☐ Ensemble « Mariachi » (Maracas + Trompeta) : le mot apparaissait déjà dans le décor validé.

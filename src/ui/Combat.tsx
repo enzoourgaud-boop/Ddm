@@ -1,5 +1,6 @@
 /** Écran de combat : ennemi + intention, question, réponse, retour, pouvoirs. */
 import { useEffect, useRef, useState } from 'preact/hooks';
+import { Options, Prompt, WriteInput } from './Answer';
 import type { Game } from '../engine/game';
 import { Carta, Hud, intentInfo, MODIFIERS, Powers } from './components';
 
@@ -31,61 +32,21 @@ function Crono({ game }: { game: Game }) {
   );
 }
 
-const ACCENTS = [...'áéíóúñü¿¡'];
-
 export function Combat({ game }: { game: Game }) {
   const s = game.state, c = s.combat!, q = game.question!, e = game.enemy!, act = game.act;
   const fb = c.fb;
-  const [typed, setTyped] = useState('');
-  const inputRef = useRef<HTMLInputElement>(null);
   const contRef = useRef<HTMLButtonElement>(null);
   const qKey = `${c.turn}:${c.q.id}`;
 
-  useEffect(() => setTyped(''), [qKey]);
   useEffect(() => {
     if (fb) contRef.current?.focus({ preventScroll: true });
-    else inputRef.current?.focus({ preventScroll: true });
   }, [qKey, !!fb]);
-  useEffect(() => {
-    const onKey = (ev: KeyboardEvent) => {
-      if (fb || c.q.mode !== 'qcm' || ev.ctrlKey || ev.metaKey || ev.altKey) return;
-      if ((ev.target as HTMLElement)?.tagName === 'INPUT') return;
-      const n = Number(ev.key);
-      if (n >= 1 && n <= c.q.options.length) {
-        const o = c.q.options[n - 1];
-        if (!c.hidden.includes(o)) game.answer(o);
-      }
-    };
-    document.addEventListener('keydown', onKey);
-    return () => document.removeEventListener('keydown', onKey);
-  }, [game, qKey, !!fb]);
 
   const theme = game.content.sequence.themes.find(t => t.id === q.theme);
   const phase = game.phase;
   const info = intentInfo(game, c.intent);
   const mod = e.modifier ? MODIFIERS[e.modifier] : null;
   const dead = c.hp <= 0;
-
-  // énoncé avec trous
-  const parts = q.answer.split(' / ');
-  let k = 0;
-  const prompt = q.prompt.includes('___')
-    ? q.prompt.split('___').flatMap((seg, i, arr) =>
-        i < arr.length - 1 ? [seg, <span class="hueco" key={i}>{fb ? parts[k++] ?? q.answer : ' '}</span>] : [seg],
-      )
-    : q.prompt;
-
-  const insert = (ch: string) => {
-    const el = inputRef.current;
-    if (!el) return;
-    const a = el.selectionStart ?? typed.length, b = el.selectionEnd ?? a;
-    const v = typed.slice(0, a) + ch + typed.slice(b);
-    setTyped(v);
-    requestAnimationFrame(() => {
-      el.focus();
-      el.setSelectionRange(a + 1, a + 1);
-    });
-  };
 
   const tag = e.kind === 'final' ? 'Jefa final' : e.kind === 'jefe' ? 'Jefe' : e.kind === 'elite' ? 'Élite' : 'Enemigo';
   const contLabel = s.hp <= 0 ? 'Voir le bilan' : dead ? `¡Victoria! ${e.name} est vaincu${e.name.startsWith('La ') ? 'e' : ''}` : 'Continuer';
@@ -146,14 +107,7 @@ export function Combat({ game }: { game: Game }) {
             </span>
           </div>
           {!fb && <Crono game={game} />}
-          <div class="enun" lang={q.promptLang}>
-            {q.emoji && (
-              <span class="emo" aria-hidden="true">
-                {q.emoji}
-              </span>
-            )}
-            {prompt}
-          </div>
+          <Prompt q={q} revealed={!!fb} />
           {c.used.translate && (
             <div class="pista">
               <b>Traductor</b> {q.translation}
@@ -171,61 +125,9 @@ export function Combat({ game }: { game: Game }) {
           )}
 
           {c.q.mode === 'qcm' ? (
-            <div class="ops" role="group" aria-label="Réponses possibles">
-              {c.q.options.map((o, i) => {
-                let cls = '';
-                let dis = !!fb;
-                if (c.hidden.includes(o)) {
-                  cls = 'out';
-                  dis = true;
-                }
-                if (fb) {
-                  if (o === q.answer) cls = 'good';
-                  else if (o === fb.given) cls = 'bad';
-                }
-                return (
-                  <button class={`op ${cls}`} key={qKey + i} disabled={dis} onClick={() => game.answer(o)}>
-                    <kbd aria-hidden="true">{i + 1}</kbd>
-                    <span lang={q.answerLang}>{o}</span>
-                  </button>
-                );
-              })}
-            </div>
+            <Options asked={c.q} q={q} given={fb?.given ?? null} done={!!fb} hidden={c.hidden} onPick={o => game.answer(o)} />
           ) : (
-            !fb && (
-              <>
-                <form
-                  class="escr"
-                  onSubmit={ev => {
-                    ev.preventDefault();
-                    game.answer(typed);
-                  }}
-                >
-                  <input
-                    ref={inputRef}
-                    lang="es"
-                    autocomplete="off"
-                    autocapitalize="off"
-                    autocorrect="off"
-                    spellcheck={false}
-                    placeholder="Ta réponse en espagnol…"
-                    aria-label="Ta réponse en espagnol"
-                    value={typed}
-                    onInput={ev => setTyped((ev.target as HTMLInputElement).value)}
-                  />
-                  <button class="btn" type="submit">
-                    Valider
-                  </button>
-                </form>
-                <div class="tildes" role="group" aria-label="Lettres accentuées">
-                  {ACCENTS.map(ch => (
-                    <button type="button" key={ch} onClick={() => insert(ch)} aria-label={`Insérer ${ch}`}>
-                      {ch}
-                    </button>
-                  ))}
-                </div>
-              </>
-            )
+            !fb && <WriteInput onSubmit={v => game.answer(v)} resetKey={qKey} />
           )}
 
           {fb && (

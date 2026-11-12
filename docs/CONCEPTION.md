@@ -238,3 +238,10 @@ Toutes les options par défaut ont été retenues :
 - Équilibrage : 15 PV au départ, attaques de 1 à l'acte I, ennemis un peu plus résistants (voir `npm run equilibrage`).
 - « El Papel Picado » est dessiné en SVG : l'emoji 🎏 représente une manche à air japonaise.
 - Les icônes dessinées s'écrivent `"emoji": "svg:papel-picado"` dans `enemies.json`.
+
+### Ajustements faits pendant l'étape 2
+- Plus de boutique automatique après le jefe : on y gagne une **relique au choix** (rare ou légendaire de préférence) et 25 % de PV. Le Tianguis est une salle de la carte, avec au moins un par acte.
+- Carte de 6 étages : combat → 3 étages variés → Ofrenda → jefe ; 3 ou 4 salles par étage.
+- Les noms des salles, leurs textes et le repas du Tianguis sont dans `sequence.json` (`rooms`, `meal`).
+- Coffres : 40 % sont fermés par une question ; une bonne réponse donne une relique rare ou légendaire.
+- Équilibrage (300 parties par profil) : 90 % → 99 % de victoires en 17 min ; 75 % → 59 % en 20 min ; 60 % → atteint l'acte 2 en moyenne.

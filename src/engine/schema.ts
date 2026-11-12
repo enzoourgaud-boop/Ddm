@@ -121,9 +121,10 @@ export type Enemy = z.infer<typeof EnemySchema>;
 
 export const EffectSchema = z.enum([
   // aides
-  'translate', 'hint', 'scissors', 'oracle', 'swap', 'time', 'heal', 'autoShield',
+  'translate', 'hint', 'scissors', 'oracle', 'swap', 'time', 'heal', 'autoShield', 'cancelIntent',
   // reliques
   'damageBonus', 'writeBonus', 'streakMaster', 'maxHp', 'goldPerCorrect', 'healAfterFight', 'accentForgive',
+  'streakBonus', 'freeTranslate', 'extraChoice', 'allWrite', 'slowTime', 'firstErrorShield', 'revive', 'luckyCards',
 ]);
 export type Effect = z.infer<typeof EffectSchema>;
 
@@ -140,9 +141,83 @@ export const ItemSchema = z
     effect: EffectSchema,
     value: z.number().optional(),
     description: z.string(),
+    /** Texte de la version améliorée (aides seulement, via l'Ofrenda). */
+    upgrade: z.string().optional(),
   })
   .strict();
 export type Item = z.infer<typeof ItemSchema>;
+
+/* ---------- Synergies ---------- */
+
+export const SynergySchema = z
+  .object({
+    id: idSchema,
+    name: z.string(),
+    emoji: z.string(),
+    items: z.array(z.string()).min(2),
+    effect: z.enum(['healOnCorrect', 'streakDouble', 'goldOnWrite']),
+    value: z.number().optional(),
+    description: z.string(),
+  })
+  .strict();
+export type Synergy = z.infer<typeof SynergySchema>;
+
+/* ---------- Événements ---------- */
+
+const OutcomeBase = {
+  text: z.string().min(1),
+  textFr: z.string().optional(),
+};
+const SimpleEffect = z.discriminatedUnion('type', [
+  z.object({ type: z.literal('hp'), value: z.number().int() }).strict(),
+  z.object({ type: z.literal('maxHp'), value: z.number().int() }).strict(),
+  z.object({ type: z.literal('gold'), value: z.number().int() }).strict(),
+  z.object({ type: z.literal('item'), id: z.string().optional(), kind: z.enum(['aide', 'reliquia']).optional(), rarity: z.enum(['comun', 'rara', 'legendaria']).optional() }).strict(),
+  z.object({ type: z.literal('loseItem') }).strict(),
+  z.object({ type: z.literal('upgrade') }).strict(),
+  z.object({ type: z.literal('fight'), kind: z.enum(['normal', 'elite']) }).strict(),
+]);
+const SimpleOutcome = z.object({ ...OutcomeBase, effects: z.array(SimpleEffect) }).strict();
+export const EventEffectSchema = z.union([
+  SimpleEffect,
+  z.object({ type: z.literal('random'), outcomes: z.array(SimpleOutcome).min(2) }).strict(),
+]);
+export type EventEffect = z.infer<typeof EventEffectSchema>;
+export const EventOutcomeSchema = z.object({ ...OutcomeBase, effects: z.array(EventEffectSchema) }).strict();
+export type EventOutcome = z.infer<typeof EventOutcomeSchema>;
+
+export const EventChoiceSchema = z
+  .object({
+    label: z.string().min(1),
+    labelFr: z.string().optional(),
+    require: z.object({ gold: z.number().int().positive().optional(), aide: z.number().int().positive().optional() }).strict().optional(),
+    /** Choix direct… */
+    outcome: EventOutcomeSchema.optional(),
+    /** …ou choix avec une question : success / failure selon la réponse. */
+    quiz: z.object({ themes: z.array(z.string()).optional(), write: z.boolean().optional() }).strict().optional(),
+    success: EventOutcomeSchema.optional(),
+    failure: EventOutcomeSchema.optional(),
+  })
+  .strict()
+  .refine(c => (c.quiz ? !!c.success && !!c.failure : !!c.outcome), {
+    message: 'un choix doit avoir soit « outcome », soit « quiz » + « success » + « failure »',
+  });
+export type EventChoice = z.infer<typeof EventChoiceSchema>;
+
+export const EventSchema = z
+  .object({
+    id: idSchema,
+    emoji: z.string(),
+    title: z.string(),
+    text: z.string().min(1),
+    textFr: z.string().min(1),
+    gloss: z.array(z.tuple([z.string(), z.string()])).default([]),
+    /** Actes où l'événement peut apparaître (tous par défaut). */
+    acts: z.array(z.number().int().positive()).optional(),
+    choices: z.array(EventChoiceSchema).min(1).max(4),
+  })
+  .strict();
+export type GameEvent = z.infer<typeof EventSchema>;
 export type Rarity = Item['rarity'];
 
 /* ---------- Séquence ---------- */
@@ -192,6 +267,19 @@ export const SequenceSchema = z
           .strict(),
       )
       .min(1),
+    map: z
+      .object({
+        floors: z.number().int().min(3).max(12),
+        width: z.tuple([z.number().int().min(1), z.number().int().min(1)]),
+        restFloor: z.number().int().min(1),
+        weights: z.object({ combat: z.number(), event: z.number(), elite: z.number(), shop: z.number(), chest: z.number(), rest: z.number() }).strict(),
+      })
+      .strict(),
+    rooms: z.record(
+      z.enum(['combat', 'elite', 'shop', 'rest', 'event', 'chest', 'boss']),
+      z.object({ name: z.string(), emoji: z.string(), help: z.string(), text: z.string().optional() }).strict(),
+    ),
+    meal: z.object({ name: z.string(), emoji: z.string(), price: z.number().int(), heal: z.number().int(), description: z.string() }).strict(),
     feedback: z
       .object({
         ok: z.array(z.string()).min(1),
@@ -213,6 +301,10 @@ export interface Content {
   questions: Question[];
   enemies: Enemy[];
   items: Item[];
+  events: GameEvent[];
+  synergies: Synergy[];
 }
+
+export type RoomType = 'combat' | 'elite' | 'shop' | 'rest' | 'event' | 'chest' | 'boss';
 
 export const levelNum = (l: Question['level']): 1 | 2 | 3 | 4 => (l === 'jefe' ? 4 : l);

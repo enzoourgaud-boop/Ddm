@@ -34,6 +34,8 @@ for (const id of listSequences()) {
     console.log(`  ${t.padEnd(14)} ${row.map(n => pad(n, 6)).join(' ')} ${pad(row.reduce((a, b) => a + b, 0), 6)}`);
   }
   const types = [...new Set(qs.map(q => q.type))];
+  const rel = content.items.filter(i => i.kind === 'reliquia');
+  console.log(`  ${content.events.length} événements · ${content.enemies.length} ennemis · ${content.items.length - rel.length} aides · ${rel.length} reliques · ${content.synergies.length} synergies`);
   console.log(`  types : ${types.map(t => `${t} (${qs.filter(q => q.type === t).length})`).join(', ')}`);
 }
 console.log(errors ? `\n❌ ${errors} erreur(s) à corriger.` : '\n✅ Banque valide.');

@@ -6,7 +6,9 @@ import { randomSeed } from '../engine/rng';
 import { storage } from '../storage';
 import { Combat } from './Combat';
 import { PapelPicado, useGame } from './components';
+import { ChestScreen, EventScreen, MapScreen, RestScreen } from './Rooms';
 import { type Meta, Over, Reward, Shop, Title } from './screens';
+import { Transition } from './Transition';
 
 const loaded = loadContent();
 
@@ -16,7 +18,7 @@ function loadSettings(): Settings {
 
 function loadSaved(): RunState | null {
   const r = storage.get<RunState | null>('run', null);
-  if (!r || r.v !== 1 || r.screen === 'over') return null;
+  if (!r || r.v !== 2 || r.screen === 'over') return null;
   return r;
 }
 
@@ -81,7 +83,7 @@ function Main({ content }: { content: NonNullable<typeof loaded.content> }) {
 
   // remonte en haut de page à chaque changement d'écran
   const screen = game?.state.screen ?? 'title';
-  const room = game ? `${game.state.act}-${game.state.room}` : '';
+  const room = game ? `${game.state.act}-${game.state.node}` : '';
   useEffect(() => window.scrollTo({ top: 0 }), [screen, room]);
 
   const setSettings = (s: Settings) => {
@@ -98,7 +100,7 @@ function Main({ content }: { content: NonNullable<typeof loaded.content> }) {
     if (!saved) return;
     try {
       const g = new Game(content, settings, saved);
-      if (!g.enemy && saved.screen === 'combat') throw new Error('partie illisible');
+      if ((!g.enemy && saved.screen === 'combat') || !saved.map?.nodes) throw new Error('partie illisible');
       setGame(g);
     } catch {
       storage.remove('run');
@@ -113,6 +115,7 @@ function Main({ content }: { content: NonNullable<typeof loaded.content> }) {
   return (
     <>
       <PapelPicado />
+      {game && <Transition key={`${screen}-${room}`} />}
       <main id="app">
         {!persistent && (
           <p class="banner" role="status">
@@ -122,7 +125,11 @@ function Main({ content }: { content: NonNullable<typeof loaded.content> }) {
         {!game && (
           <Title content={content} meta={meta} saved={saved} settings={settings} onSettings={setSettings} onStart={start} onResume={resume} initialSeed={initialSeed} />
         )}
+        {game && game.state.screen === 'map' && <MapScreen game={game} />}
         {game && game.state.screen === 'combat' && <Combat game={game} />}
+        {game && game.state.screen === 'event' && <EventScreen game={game} />}
+        {game && game.state.screen === 'rest' && <RestScreen game={game} />}
+        {game && game.state.screen === 'chest' && <ChestScreen game={game} />}
         {game && game.state.screen === 'reward' && <Reward game={game} />}
         {game && game.state.screen === 'shop' && <Shop game={game} />}
         {game && game.state.screen === 'over' && <Over game={game} onMenu={toMenu} onReplay={() => start('')} />}

@@ -1,11 +1,13 @@
 /**
  * Moteur de partie : état sérialisable + actions. Aucun accès au DOM.
- * L'interface appelle les actions (answer, usePower, proceed…) puis relit `state`.
+ * L'interface appelle les actions (choose, answer, usePower, proceed…) puis relit `state`.
  */
 import { type AccentPolicy, autoHint, checkAnswer, fillBlanks, maskAnswer, normalize, type Verdict } from './answer';
+import { type ActMap, generateMap, nodeById, reachable, type MapNode } from './map';
 import { Rng } from './rng';
 import {
-  type Act, type Content, type Enemy, type Intent, type Item, type Phase, type Question, type Rarity, type Trait, levelNum,
+  type Act, type Content, type Enemy, type EventEffect, type EventOutcome, type GameEvent, type Intent, type Item, type Phase,
+  type Question, type Rarity, type RoomType, type Synergy, type Trait, levelNum,
 } from './schema';
 
 /* ======================= Types ======================= */
@@ -58,11 +60,14 @@ export interface CombatState {
   phase: number;
   turn: number;
   intent: Intent;
-  /** Bonus d'attaque (crescendo, phases). */
+  /** L'intention de ce tour est annulée (Incienso). */
+  canceled: boolean;
   attackBonus: number;
   weakTheme: string | null;
   juicio: boolean;
   vanishUsed: boolean;
+  firstErrorUsed: boolean;
+  freeTranslateUsed: boolean;
   rowCorrect: number;
   fog: boolean;
   q: Asked;
@@ -72,6 +77,36 @@ export interface CombatState {
   mask: string;
   timeMax: number;
   timeLeft: number;
+}
+
+/** Petite question hors combat (événement, coffre). */
+export interface QuizState {
+  q: Asked;
+  fb: { verdict: Verdict; given: string } | null;
+}
+
+export interface RoomResult {
+  text: string;
+  textFr?: string;
+  lines: string[];
+}
+
+export interface EventState {
+  id: string;
+  choice: number | null;
+  quiz: QuizState | null;
+  result: RoomResult | null;
+  pendingFight: 'normal' | 'elite' | null;
+}
+
+export interface ChestState {
+  locked: boolean;
+  quiz: QuizState | null;
+  result: RoomResult | null;
+}
+
+export interface RestState {
+  result: RoomResult | null;
 }
 
 export interface ErrorEntry {
@@ -87,10 +122,10 @@ export interface Offer {
   sold?: boolean;
 }
 
-export type Screen = 'combat' | 'reward' | 'shop' | 'over';
+export type Screen = 'map' | 'combat' | 'reward' | 'shop' | 'rest' | 'event' | 'chest' | 'over';
 
 export interface RunState {
-  v: 1;
+  v: 2;
   seed: string;
   rng: number;
   screen: Screen;
@@ -98,24 +133,42 @@ export interface RunState {
   maxHp: number;
   gold: number;
   act: number;
-  room: number;
-  /** Enchaînement des ennemis par acte (étape 1 : chemin linéaire). */
-  rooms: string[][];
+  map: ActMap;
+  /** Salle actuelle (null = au départ de l'acte). */
+  node: string | null;
+  /** Salles traversées dans l'acte. */
+  path: string[];
   inv: Record<string, number>;
   relics: Record<string, number>;
+  upgrades: Record<string, boolean>;
   streak: number;
   poison: number;
-  stats: { ok: number; ko: number; casi: number; won: number; written: number; turns: number; startedAt: number; endedAt: number };
+  reviveUsed: boolean;
+  luckyCount: number;
+  stats: { ok: number; ko: number; casi: number; won: number; written: number; turns: number; rooms: number; startedAt: number; endedAt: number };
   seen: Record<string, number>;
   retry: string[];
   errors: ErrorEntry[];
+  metEnemies: string[];
+  seenEvents: string[];
   combat: CombatState | null;
   offer: Offer[] | null;
-  offerKind: 'normal' | 'elite' | null;
+  offerKind: 'normal' | 'elite' | 'jefe' | null;
+  event: EventState | null;
+  chest: ChestState | null;
+  rest: RestState | null;
   result: 'win' | 'lose' | null;
 }
 
 const RARITY_WEIGHT: Record<Rarity, number> = { comun: 60, rara: 30, legendaria: 10 };
+const BOSS_RARITY_WEIGHT: Record<Rarity, number> = { comun: 15, rara: 55, legendaria: 30 };
+
+interface PickOpts {
+  themes: string[];
+  level: 1 | 2 | 3 | 4;
+  needWrite: boolean;
+  weakTheme?: string | null;
+}
 
 /* ======================= Moteur ======================= */
 
@@ -127,6 +180,7 @@ export class Game {
   private qById: Map<string, Question>;
   private enemyById: Map<string, Enemy>;
   private itemById: Map<string, Item>;
+  private eventById: Map<string, GameEvent>;
   private listeners = new Set<() => void>();
   /** Poids de tirage d'une question (branché sur Leitner à l'étape 4). */
   weightOf: (q: Question) => number = () => 1;
@@ -139,25 +193,22 @@ export class Game {
     this.qById = new Map(content.questions.map(q => [q.id, q]));
     this.enemyById = new Map(content.enemies.map(e => [e.id, e]));
     this.itemById = new Map(content.items.map(i => [i.id, i]));
+    this.eventById = new Map(content.events.map(e => [e.id, e]));
   }
 
   /** Démarre une nouvelle partie à partir d'une graine. */
   static newRun(content: Content, settings: Settings, seed: string, now = Date.now()): Game {
     const rng = new Rng(seed);
-    const rooms = content.sequence.acts.map(a => {
-      const normals = rng.shuffle(a.enemies);
-      const n = [normals[0], normals[1 % normals.length]];
-      return [...n, rng.pick(a.elites), a.boss];
-    });
     const p = content.sequence.player;
     const state: RunState = {
-      v: 1, seed, rng: rng.state, screen: 'combat', hp: p.hp, maxHp: p.hp, gold: 0, act: 0, room: 0, rooms,
-      inv: { ...p.startItems }, relics: {}, streak: 0, poison: 0,
-      stats: { ok: 0, ko: 0, casi: 0, won: 0, written: 0, turns: 0, startedAt: now, endedAt: 0 },
-      seen: {}, retry: [], errors: [], combat: null, offer: null, offerKind: null, result: null,
+      v: 2, seed, rng: rng.state, screen: 'map', hp: p.hp, maxHp: p.hp, gold: 0, act: 0,
+      map: generateMap(rng, content.sequence.map), node: null, path: [],
+      inv: { ...p.startItems }, relics: {}, upgrades: {}, streak: 0, poison: 0, reviveUsed: false, luckyCount: 0,
+      stats: { ok: 0, ko: 0, casi: 0, won: 0, written: 0, turns: 0, rooms: 0, startedAt: now, endedAt: 0 },
+      seen: {}, retry: [], errors: [], metEnemies: [], seenEvents: [],
+      combat: null, offer: null, offerKind: null, event: null, chest: null, rest: null, result: null,
     };
     const g = new Game(content, settings, state);
-    g.startFight();
     g.commit();
     return g;
   }
@@ -186,6 +237,12 @@ export class Game {
   get question(): Question | null {
     return this.state.combat ? this.qById.get(this.state.combat.q.id) ?? null : null;
   }
+  get currentNode(): MapNode | null {
+    return this.state.node ? nodeById(this.state.map, this.state.node) ?? null : null;
+  }
+  get currentEvent(): GameEvent | null {
+    return this.state.event ? this.eventById.get(this.state.event.id) ?? null : null;
+  }
   item(id: string): Item | undefined {
     return this.itemById.get(id);
   }
@@ -195,18 +252,34 @@ export class Game {
   enemyDef(id: string): Enemy | undefined {
     return this.enemyById.get(id);
   }
+  reachable(): MapNode[] {
+    return this.state.screen === 'map' ? reachable(this.state.map, this.state.node) : [];
+  }
   relicCount(effect: Item['effect']): number {
     let n = 0;
     for (const [id, k] of Object.entries(this.state.relics)) if (this.itemById.get(id)?.effect === effect) n += k;
     return n;
   }
-  relicValue(effect: Item['effect']): number {
+  relicValue(effect: Item['effect'], fallback = 1): number {
     let n = 0;
     for (const [id, k] of Object.entries(this.state.relics)) {
       const it = this.itemById.get(id);
-      if (it?.effect === effect) n += k * (it.value ?? 1);
+      if (it?.effect === effect) n += k * (it.value ?? fallback);
     }
     return n;
+  }
+  /** Synergies complètes (toutes leurs reliques possédées). */
+  activeSynergies(): Synergy[] {
+    return this.content.synergies.filter(s => s.items.every(id => (this.state.relics[id] ?? 0) > 0));
+  }
+  /** Synergies commencées : nombre de reliques possédées sur le total. */
+  synergyProgress(): { synergy: Synergy; owned: number }[] {
+    return this.content.synergies
+      .map(s => ({ synergy: s, owned: s.items.filter(id => (this.state.relics[id] ?? 0) > 0).length }))
+      .filter(x => x.owned > 0);
+  }
+  private synergy(effect: Synergy['effect']): Synergy | undefined {
+    return this.activeSynergies().find(s => s.effect === effect);
   }
   traits(): Set<Trait> {
     const e = this.enemy;
@@ -215,10 +288,20 @@ export class Game {
   get streakThreshold(): number {
     return this.relicCount('streakMaster') ? 2 : 3;
   }
+  isUpgraded(id: string): boolean {
+    return !!this.state.upgrades[id];
+  }
+  /** Le Traductor gratuit du Diccionario est-il disponible ? */
+  freeTranslateAvailable(): boolean {
+    const c = this.state.combat;
+    return !!c && this.relicCount('freeTranslate') > 0 && !c.freeTranslateUsed;
+  }
   /** Les pouvoirs sont-ils utilisables maintenant ? Renvoie la raison sinon. */
   powerBlock(id: string): string | null {
     const s = this.state, c = s.combat, it = this.itemById.get(id), q = this.question;
-    if (!it || !(s.inv[id] > 0)) return 'non possédé';
+    if (!it) return 'inconnu';
+    const free = it.effect === 'translate' && this.freeTranslateAvailable();
+    if (!(s.inv[id] > 0) && !free) return 'non possédé';
     if (it.auto) return 'automatique';
     if (it.effect === 'heal') return s.hp >= s.maxHp ? 'vie pleine' : null;
     if (s.screen !== 'combat' || !c || c.fb || !q) return 'hors combat';
@@ -229,15 +312,208 @@ export class Game {
       case 'hint': return c.used.hint ? 'déjà utilisé' : null;
       case 'scissors': return c.used.scissors ? 'déjà utilisé' : null;
       case 'time': return c.timeMax ? null : 'pas de chrono';
+      case 'cancelIntent': return c.canceled ? 'déjà utilisé' : null;
       default: return null;
     }
   }
 
+  /* ======================= Carte ======================= */
+
+  /** Entre dans une salle accessible de la carte. */
+  choose(nodeId: string): boolean {
+    const s = this.state;
+    if (s.screen !== 'map') return false;
+    const node = reachable(s.map, s.node).find(n => n.id === nodeId);
+    if (!node) return false;
+    s.node = node.id;
+    s.path.push(node.id);
+    s.stats.rooms++;
+    this.enterRoom(node.type);
+    this.commit();
+    return true;
+  }
+
+  private enterRoom(type: RoomType) {
+    const s = this.state;
+    s.offer = null;
+    s.offerKind = null;
+    s.event = s.chest = s.rest = null;
+    switch (type) {
+      case 'combat': return this.startFight(this.pickEnemy('normal'));
+      case 'elite': return this.startFight(this.pickEnemy('elite'));
+      case 'boss': return this.startFight(this.act.boss);
+      case 'shop': {
+        const aides = this.pickItems(this.available('aide'), 3, RARITY_WEIGHT);
+        const rel = this.pickItems(this.available('reliquia'), 2, RARITY_WEIGHT);
+        s.offer = [...aides, ...rel].map(id => ({ id }));
+        s.screen = 'shop';
+        return;
+      }
+      case 'rest':
+        s.rest = { result: null };
+        s.screen = 'rest';
+        return;
+      case 'chest':
+        s.chest = { locked: this.rng.chance(0.4), quiz: null, result: null };
+        s.screen = 'chest';
+        return;
+      case 'event': {
+        const ev = this.pickEvent();
+        if (!ev) return this.startFight(this.pickEnemy('normal'));
+        s.seenEvents.push(ev.id);
+        s.event = { id: ev.id, choice: null, quiz: null, result: null, pendingFight: null };
+        s.screen = 'event';
+        return;
+      }
+    }
+  }
+
+  private toMap() {
+    const s = this.state;
+    s.screen = 'map';
+    s.combat = null;
+    s.offer = null;
+    s.offerKind = null;
+    s.event = s.chest = s.rest = null;
+  }
+
+  private nextAct() {
+    const s = this.state;
+    s.act++;
+    s.map = generateMap(this.rng, this.content.sequence.map);
+    s.node = null;
+    s.path = [];
+    s.metEnemies = [];
+    this.toMap();
+  }
+
+  private pickEnemy(kind: 'normal' | 'elite'): string {
+    const s = this.state;
+    const pool = kind === 'elite' ? this.act.elites : this.act.enemies;
+    const fresh = pool.filter(id => !s.metEnemies.includes(id));
+    const id = this.rng.pick(fresh.length ? fresh : pool);
+    s.metEnemies.push(id);
+    return id;
+  }
+
+  private pickEvent(): GameEvent | null {
+    const s = this.state, actNo = s.act + 1;
+    const ok = this.content.events.filter(e => !e.acts || e.acts.includes(actNo));
+    const fresh = ok.filter(e => !s.seenEvents.includes(e.id));
+    const pool = fresh.length ? fresh : ok;
+    return pool.length ? this.rng.pick(pool) : null;
+  }
+
+  /* ======================= Questions ======================= */
+
+  /** Thèmes jouables (réglages ∩ séquence). */
+  activeThemes(): string[] {
+    const all = this.content.sequence.themes.map(t => t.id);
+    const on = this.settings.themes ? all.filter(t => this.settings.themes!.includes(t)) : all;
+    return on.length ? on : all;
+  }
+
+  private isUsable(q: Question): boolean {
+    if (q.disabled) return false;
+    if (this.settings.types && !this.settings.types.includes(q.type)) return false;
+    return true;
+  }
+
+  private pick(o: PickOpts): Question {
+    const s = this.state;
+    const ok = (q: Question) => this.isUsable(q) && (!o.needWrite || q.type === 'ecrit' || q.writable);
+    const order = [o.level, ...[4, 3, 2, 1].filter(l => l < o.level), ...[1, 2, 3, 4].filter(l => l > o.level)];
+    const candidatesFor = (theme: string): Question[] => {
+      for (const l of order) {
+        const pool = this.content.questions.filter(q => q.theme === theme && levelNum(q.level) === l && ok(q));
+        if (pool.length) return pool;
+      }
+      return [];
+    };
+    const withPool = o.themes.map(t => ({ t, pool: candidatesFor(t) })).filter(x => x.pool.length);
+    if (!withPool.length) {
+      const any = this.content.questions.filter(q => this.isUsable(q));
+      return this.rng.pick(any.length ? any : this.content.questions);
+    }
+    let chosen = this.rng.pick(withPool);
+    if (o.weakTheme && this.rng.chance(0.4)) chosen = withPool.find(x => x.t === o.weakTheme) ?? chosen;
+    const fresh = chosen.pool.filter(q => !s.seen[q.id]);
+    const pool = fresh.length ? fresh : chosen.pool;
+    return this.rng.weighted(pool, q => this.weightOf(q));
+  }
+
+  private canWrite(q: Question): boolean {
+    return this.settings.writeFactor > 0 && (q.type === 'ecrit' || q.writable);
+  }
+
+  /** Part de base des réponses écrites hors règles spéciales. */
+  private writeChance(boost = 0): number {
+    return Math.min(1, (this.act.writeShare + boost) * this.settings.writeFactor);
+  }
+
+  private makeAsked(q: Question, mode: Mode, again = false): Asked {
+    this.state.seen[q.id] = (this.state.seen[q.id] ?? 0) + 1;
+    const options = mode === 'qcm' ? this.rng.shuffle([q.answer, ...this.rng.shuffle(q.distractors).slice(0, 3)]) : [];
+    return { id: q.id, mode, options, again: again || undefined };
+  }
+
+  /** Enregistre le résultat d'une réponse (statistiques, carnet, revanche). */
+  private record(q: Question, v: Verdict, given: string | null, mode: Mode) {
+    const s = this.state;
+    if (v === 'ok') {
+      s.stats.ok++;
+      if (mode === 'write') s.stats.written++;
+      s.retry = s.retry.filter(id => id !== q.id);
+    } else if (v === 'casi') {
+      s.stats.casi++;
+      this.logError(q, given);
+    } else {
+      s.stats.ko++;
+      this.logError(q, given);
+      if (!s.retry.includes(q.id)) s.retry.push(q.id);
+    }
+  }
+
+  private checkOptions(q: Question) {
+    const theme = this.content.sequence.themes.find(t => t.id === q.theme);
+    return {
+      ignoreArticles: q.check?.ignoreArticles ?? theme?.check?.ignoreArticles ?? false,
+      optionalSubject: q.check?.optionalSubject ?? theme?.check?.optionalSubject ?? true,
+      accents: this.relicCount('accentForgive') ? ('accept' as const) : this.settings.accents,
+    };
+  }
+
+  private judgeAsked(asked: Asked, value: string): Verdict | null {
+    const q = this.qById.get(asked.id);
+    if (!q) return null;
+    if (asked.mode === 'qcm') return normalize(value) === normalize(q.answer) ? 'ok' : 'ko';
+    return checkAnswer(value, [q.answer, ...q.accept], this.checkOptions(q));
+  }
+
+  /** Question hors combat (événements, coffres). */
+  private makeQuiz(o: { themes?: string[]; write?: boolean; level?: 1 | 2 | 3 }): QuizState {
+    const active = this.activeThemes();
+    const themes = o.themes?.filter(t => active.includes(t)) ?? [];
+    const q = this.pick({ themes: themes.length ? themes : active, level: o.level ?? this.act.level, needWrite: !!o.write && this.settings.writeFactor > 0 });
+    const mode: Mode = this.canWrite(q) && (o.write || q.type === 'ecrit' || this.rng.chance(this.writeChance())) ? 'write' : 'qcm';
+    return { q: this.makeAsked(q, mode), fb: null };
+  }
+
+  private answerQuiz(quiz: QuizState, value: string): Verdict | null {
+    if (quiz.fb) return null;
+    const v = this.judgeAsked(quiz.q, value);
+    if (!v) return null;
+    const q = this.qById.get(quiz.q.id)!;
+    this.record(q, v, value, quiz.q.mode);
+    quiz.fb = { verdict: v, given: value };
+    return v;
+  }
+
   /* ======================= Combat ======================= */
 
-  private startFight() {
+  private startFight(enemyId: string) {
     const s = this.state;
-    const e = this.enemyById.get(s.rooms[s.act][s.room])!;
+    const e = this.enemyById.get(enemyId)!;
     s.screen = 'combat';
     s.offer = null;
     s.offerKind = null;
@@ -245,9 +521,9 @@ export class Game {
     const abanico = e.phases?.[0]?.abanico ?? 0;
     s.combat = {
       enemyId: e.id, hp: e.hp, maxHp: e.hp, shield: 0, abanico: this.settings.writeFactor > 0 ? abanico : 0,
-      phase: 0, turn: 0, intent: { kind: 'attack' }, attackBonus: e.phases?.[0]?.attackBonus ?? 0, weakTheme: null, juicio: false,
-      vanishUsed: false, rowCorrect: 0, fog: false, q: { id: '', mode: 'qcm', options: [] }, fb: null, used: {}, hidden: [], mask: '',
-      timeMax: 0, timeLeft: 0,
+      phase: 0, turn: 0, intent: { kind: 'attack' }, canceled: false, attackBonus: e.phases?.[0]?.attackBonus ?? 0, weakTheme: null,
+      juicio: false, vanishUsed: false, firstErrorUsed: false, freeTranslateUsed: false, rowCorrect: 0, fog: false,
+      q: { id: '', mode: 'qcm', options: [] }, fb: null, used: {}, hidden: [], mask: '', timeMax: 0, timeLeft: 0,
     };
     this.nextTurn();
   }
@@ -271,25 +547,13 @@ export class Game {
     c.turn++;
     s.stats.turns++;
     c.intent = this.rollIntent();
+    c.canceled = false;
     const tr = this.traits();
     c.fog = c.intent.kind === 'fog';
     c.juicio = tr.has('juicio') && c.turn % 3 === 0;
     c.weakTheme = tr.has('colorShift') ? this.rng.pick(this.activeThemes()) : null;
     if (c.intent.kind === 'shield') c.shield += c.intent.value ?? 2;
     this.ask();
-  }
-
-  /** Thèmes jouables (réglages ∩ séquence). */
-  activeThemes(): string[] {
-    const all = this.content.sequence.themes.map(t => t.id);
-    const on = this.settings.themes ? all.filter(t => this.settings.themes!.includes(t)) : all;
-    return on.length ? on : all;
-  }
-
-  private isUsable(q: Question): boolean {
-    if (q.disabled) return false;
-    if (this.settings.types && !this.settings.types.includes(q.type)) return false;
-    return true;
   }
 
   private needsWrite(): boolean {
@@ -305,82 +569,56 @@ export class Game {
     return L === 1 || this.rng.chance(0.65) ? L : ((L - 1) as 1 | 2);
   }
 
-  /** Choisit la prochaine question selon l'ennemi, la phase, les réglages et l'historique. */
-  private pickQuestion(): Question {
-    const s = this.state, c = s.combat!, e = this.enemy!, ph = this.phase;
+  private combatPickOpts(easier = false): PickOpts {
+    const c = this.state.combat!, e = this.enemy!, ph = this.phase;
     let themes = this.activeThemes();
     if (ph?.themes) {
       const t = themes.filter(x => ph.themes!.includes(x));
       if (t.length) themes = t;
     }
     if (c.juicio && e.focusTheme && themes.includes(e.focusTheme)) themes = [e.focusTheme];
-    const write = this.needsWrite();
-    const ok = (q: Question) => this.isUsable(q) && (!write || q.type === 'ecrit' || q.writable);
-    const L = this.targetLevel();
-    const order = [L, ...[4, 3, 2, 1].filter(l => l < L), ...[1, 2, 3, 4].filter(l => l > L)];
-
-    const candidatesFor = (theme: string): Question[] => {
-      for (const l of order) {
-        const pool = this.content.questions.filter(q => q.theme === theme && levelNum(q.level) === l && ok(q));
-        if (pool.length) return pool;
-      }
-      return [];
-    };
-    const withPool = themes.map(t => ({ t, pool: candidatesFor(t) })).filter(x => x.pool.length);
-    if (!withPool.length) {
-      const any = this.content.questions.filter(q => this.isUsable(q));
-      return this.rng.pick(any.length ? any : this.content.questions);
-    }
-    let chosen = this.rng.pick(withPool);
-    if (c.weakTheme && this.rng.chance(0.4)) chosen = withPool.find(x => x.t === c.weakTheme) ?? chosen;
-    const fresh = chosen.pool.filter(q => !s.seen[q.id]);
-    const pool = fresh.length ? fresh : chosen.pool;
-    return this.rng.weighted(pool, q => this.weightOf(q));
+    let level = this.targetLevel();
+    if (easier && level > 1) level = (level - 1) as 1 | 2 | 3;
+    return { themes, level, needWrite: this.needsWrite(), weakTheme: c.weakTheme };
   }
 
   private modeFor(q: Question): Mode {
     const e = this.enemy!, tr = this.traits();
-    if (this.settings.writeFactor <= 0) return 'qcm';
-    if (q.type === 'ecrit') return 'write';
-    if (!q.writable) return 'qcm';
-    if (this.needsWrite()) return 'write';
-    let p = this.act.writeShare + (e.kind === 'jefe' ? 0.1 : 0);
-    if (e.kind === 'final') p = 0.5;
-    if (tr.has('abanico')) p = 0.75;
-    p = Math.min(1, p * this.settings.writeFactor);
+    if (!this.canWrite(q)) return 'qcm';
+    if (q.type === 'ecrit' || this.needsWrite() || this.relicCount('allWrite')) return 'write';
+    let p = this.writeChance(e.kind === 'jefe' ? 0.1 : 0);
+    if (e.kind === 'final') p = Math.min(1, 0.5 * this.settings.writeFactor);
+    if (tr.has('abanico')) p = Math.min(1, 0.75 * this.settings.writeFactor);
     return this.rng.chance(p) ? 'write' : 'qcm';
   }
 
-  private ask(forceNew = false) {
+  private ask(forceNew = false, easier = false) {
     const s = this.state, c = s.combat!, e = this.enemy!;
     let q: Question | undefined;
     let again = false;
     if (!forceNew && s.retry.length > 1 && e.kind !== 'final' && !c.juicio && this.rng.chance(0.3)) {
-      const id = s.retry.shift()!;
-      q = this.qById.get(id);
+      q = this.qById.get(s.retry.shift()!);
       again = !!q;
     }
-    if (!q || !this.isUsable(q)) {
-      q = this.pickQuestion();
+    if (!q || !this.isUsable(q) || (this.needsWrite() && !this.canWrite(q))) {
+      q = this.pick(this.combatPickOpts(easier));
       again = false;
     }
-    s.seen[q.id] = (s.seen[q.id] ?? 0) + 1;
     const mode = this.modeFor(q);
-    const options = mode === 'qcm' ? this.rng.shuffle([q.answer, ...this.rng.shuffle(q.distractors).slice(0, 3)]) : [];
-    c.q = { id: q.id, mode, options, again: again || undefined };
+    c.q = this.makeAsked(q, mode, again);
     c.fb = null;
     c.used = {};
     c.hidden = [];
     c.mask = '';
-    // chrono
     if (!this.settings.chrono) {
       c.timeMax = c.timeLeft = 0;
     } else {
       let sec = this.traits().has('ultimoBaile') ? 15 : this.act.chrono;
       if (mode === 'write') sec += 10;
+      sec += this.relicValue('slowTime', 10);
       if (e.modifier === 'prisa') sec *= 0.5;
       sec *= this.settings.chronoFactor;
-      if (c.intent.kind === 'rush') sec -= c.intent.value ?? 5;
+      if (c.intent.kind === 'rush' && !c.canceled) sec -= c.intent.value ?? 5;
       sec = Math.max(6, Math.round(sec));
       c.timeMax = c.timeLeft = sec * 1000;
     }
@@ -398,21 +636,10 @@ export class Game {
     return false;
   }
 
-  private checkOptions(q: Question) {
-    const theme = this.content.sequence.themes.find(t => t.id === q.theme);
-    return {
-      ignoreArticles: q.check?.ignoreArticles ?? theme?.check?.ignoreArticles ?? false,
-      optionalSubject: q.check?.optionalSubject ?? theme?.check?.optionalSubject ?? true,
-      accents: this.relicCount('accentForgive') ? ('accept' as const) : this.settings.accents,
-    };
-  }
-
-  /** Juge une réponse sans rien modifier (utile pour l'interface et les tests). */
+  /** Juge une réponse au combat sans rien modifier. */
   judge(value: string): Verdict | null {
-    const c = this.state.combat, q = this.question;
-    if (!c || !q) return null;
-    if (c.q.mode === 'qcm') return normalize(value) === normalize(q.answer) ? 'ok' : 'ko';
-    return checkAnswer(value, [q.answer, ...q.accept], this.checkOptions(q));
+    const c = this.state.combat;
+    return c ? this.judgeAsked(c.q, value) : null;
   }
 
   /** Répond à la question en cours. how = 'timeout' ou 'oracle' pour les cas spéciaux. */
@@ -428,25 +655,30 @@ export class Game {
       v = j;
     }
     const seq = this.content.sequence;
-    const fb: Feedback = {
-      outcome: how === 'normal' ? v : how, title: '', given: value, lines: [], dmgToEnemy: 0, dmgToPlayer: 0,
-    };
+    const fb: Feedback = { outcome: how === 'normal' ? v : how, title: '', given: value, lines: [], dmgToEnemy: 0, dmgToPlayer: 0 };
     const tr = this.traits();
+    // l'Oráculo amélioré compte comme une vraie réponse écrite
+    const strongOracle = how === 'oracle' && this.isUpgraded(this.idByEffect('oracle') ?? '');
+    const counts = how !== 'oracle' || strongOracle;
+    const written = c.q.mode === 'write' || strongOracle;
 
     if (v === 'ok') {
       let dmg = 1 + this.relicValue('damageBonus');
-      if (how !== 'oracle') {
+      if (counts) {
         s.streak++;
-        s.stats.ok++;
         c.rowCorrect++;
-        s.retry = s.retry.filter(id => id !== q.id);
-        if (c.q.mode === 'write') {
-          s.stats.written++;
+        if (how !== 'oracle') this.record(q, 'ok', value, c.q.mode);
+        if (written) {
           dmg += 1 + this.relicValue('writeBonus');
+          if (this.relicCount('allWrite')) dmg += this.relicValue('allWrite', 2);
+          const g = this.synergy('goldOnWrite');
+          if (g) s.gold += g.value ?? 1;
         }
         const th = this.streakThreshold;
         if (s.streak >= th) {
-          dmg += th === 2 ? 2 : 1;
+          let bonus = (th === 2 ? 2 : 1) + this.relicValue('streakBonus');
+          if (this.synergy('streakDouble')) bonus *= 2;
+          dmg += bonus;
           fb.combo = s.streak;
         }
         if (c.weakTheme === q.theme) {
@@ -455,7 +687,21 @@ export class Game {
         }
         if (tr.has('ultimoBaile') && s.streak >= 3) {
           dmg *= 2;
-          fb.lines.push('Série de 3 : la Catrina titube, dégâts doublés !');
+          fb.lines.push(`Série de ${s.streak} : ${e.name} titube, dégâts doublés !`);
+        }
+        const heal = this.synergy('healOnCorrect');
+        if (heal && s.hp < s.maxHp) {
+          const h = Math.min(s.maxHp - s.hp, heal.value ?? 1);
+          s.hp += h;
+          fb.lines.push(`${heal.name} : +${h} PV.`);
+        }
+        if (this.relicCount('luckyCards') && how !== 'oracle') {
+          s.luckyCount++;
+          const every = this.relicValue('luckyCards', 4) / this.relicCount('luckyCards');
+          if (s.luckyCount % every === 0) {
+            const id = this.gainRandom('aide');
+            if (id) fb.lines.push(`Lotería ! Tu gagnes : ${this.itemById.get(id)!.name}.`);
+          }
         }
       }
       if (tr.has('vanish') && !c.vanishUsed) {
@@ -464,7 +710,7 @@ export class Game {
         fb.lines.push(`${e.name} disparaît : ton coup passe à travers ! La prochaine fois, ça touchera.`);
       }
       if (dmg > 0 && c.abanico > 0) {
-        if (c.q.mode === 'write' || how === 'oracle') {
+        if (written || how === 'oracle') {
           const a = Math.min(c.abanico, dmg);
           c.abanico -= a;
           dmg -= a;
@@ -485,20 +731,17 @@ export class Game {
       const gold = 1 + this.relicValue('goldPerCorrect');
       s.gold += gold;
       fb.title = how === 'oracle' ? seq.feedback.oracle : this.rng.pick(seq.feedback.ok);
-      fb.lines.unshift(`${e.name} perd ${dmg} PV${fb.combo ? ` (série de ${fb.combo})` : ''}${c.q.mode === 'write' && how !== 'oracle' ? ', réponse écrite : dégâts renforcés' : ''}. +${gold} 🪙`);
+      fb.lines.unshift(`${e.name} perd ${dmg} PV${fb.combo ? ` (série de ${fb.combo})` : ''}${written && how !== 'oracle' ? ', réponse écrite : dégâts renforcés' : ''}. +${gold} 🪙`);
     } else if (v === 'casi') {
-      s.stats.casi++;
+      this.record(q, 'casi', value, c.q.mode);
       fb.title = seq.feedback.casi;
       fb.lines.push("Il manque un accent (ou un tilde). Personne n'est blessé, ta série continue.");
-      this.logError(q, value);
     } else {
-      s.stats.ko++;
+      this.record(q, 'ko', value, c.q.mode);
       s.streak = 0;
       c.rowCorrect = 0;
       fb.title = how === 'timeout' ? seq.feedback.timeout : this.rng.pick(seq.feedback.ko);
       if (how === 'timeout') fb.lines.push('Le temps est écoulé : cela compte comme une erreur.');
-      this.logError(q, value);
-      if (!s.retry.includes(q.id)) s.retry.push(q.id);
       this.enemyStrikes(fb);
       if (tr.has('vanidad') && c.hp > 0) {
         c.hp = Math.min(c.maxHp, c.hp + 1);
@@ -508,7 +751,7 @@ export class Game {
 
     // fin de tour
     if (c.hp > 0) {
-      if (c.intent.kind === 'heal') {
+      if (c.intent.kind === 'heal' && !c.canceled) {
         const h = Math.min(c.maxHp - c.hp, c.intent.value ?? 2);
         if (h > 0) {
           c.hp += h;
@@ -529,6 +772,7 @@ export class Game {
       fb.dmgToPlayer += 1;
       fb.lines.push(`Le poison te fait perdre 1 PV (${s.poison} restant${s.poison > 1 ? 's' : ''}).`);
     }
+    if (s.hp <= 0) this.tryRevive(fb);
     // changement de phase
     if (e.phases && c.hp > 0) {
       let p = c.phase;
@@ -546,9 +790,21 @@ export class Game {
     return fb;
   }
 
+  private tryRevive(fb: { lines: string[]; alert?: string }) {
+    const s = this.state;
+    if (s.hp > 0 || s.reviveUsed || !this.relicCount('revive')) return;
+    s.reviveUsed = true;
+    s.hp = Math.ceil(s.maxHp / 2);
+    fb.alert = `La Calavera de la suerte te ramène sur le chemin avec ${s.hp} PV !`;
+  }
+
   private enemyStrikes(fb: Feedback) {
     const s = this.state, c = s.combat!, e = this.enemy!, it = c.intent;
-    let dmg = (it.kind === 'attack' ? it.value ?? e.attack : e.attack) + c.attackBonus;
+    if (c.canceled) {
+      fb.lines.push(`L'encens apaise ${e.name} : il ne fait rien ce tour-ci.`);
+      return;
+    }
+    let dmg = (it.kind === 'attack' ? it.value ?? e.attack : e.attack) + c.attackBonus + (this.relicCount('slowTime') ? 1 : 0);
     if (c.juicio) {
       dmg *= 2;
       fb.lines.push('Juicio : la sentence est doublée !');
@@ -557,6 +813,14 @@ export class Game {
     if (shieldId) {
       s.inv[shieldId]--;
       fb.lines.push(`Ton ${this.itemById.get(shieldId)!.name} bloque l'attaque de ${e.name}.`);
+      if (this.isUpgraded(shieldId)) {
+        c.hp = Math.max(0, c.hp - 2);
+        fb.dmgToEnemy += 2;
+        fb.lines.push(`Il renvoie 2 dégâts à ${e.name} !`);
+      }
+    } else if (this.relicCount('firstErrorShield') && !c.firstErrorUsed) {
+      c.firstErrorUsed = true;
+      fb.lines.push('Ta Máscara encaisse la première erreur du combat : aucun dégât.');
     } else {
       s.hp = Math.max(0, s.hp - dmg);
       fb.dmgToPlayer += dmg;
@@ -577,7 +841,7 @@ export class Game {
     }
     if (it.kind === 'poison') {
       s.poison += it.value ?? 3;
-      fb.lines.push(`Tu es empoisonné : −1 PV par question pendant ${s.poison} questions.`);
+      fb.lines.push(`Tu es empoisonné·e : −1 PV par question pendant ${s.poison} questions.`);
     }
   }
 
@@ -606,25 +870,28 @@ export class Game {
   private winFight() {
     const s = this.state, e = this.enemy!;
     s.stats.won++;
-    s.gold += e.kind === 'normal' ? 3 : e.kind === 'elite' ? 5 : 6;
-    const h = this.relicValue('healAfterFight');
+    s.gold += e.kind === 'normal' ? 3 : e.kind === 'elite' ? 5 : 8;
+    const h = this.relicValue('healAfterFight', 2);
     if (h) s.hp = Math.min(s.maxHp, s.hp + h);
     s.poison = 0;
     if (e.kind === 'final') return this.end(true);
     if (e.kind === 'jefe') {
-      s.hp = Math.min(s.maxHp, s.hp + 3);
-      const aides = this.rng.shuffle(this.available('aide')).slice(0, 2);
-      const rel = this.rng.shuffle(this.available('reliquia')).slice(0, 2);
-      s.offer = [...aides, ...rel].map(id => ({ id }));
-      s.offerKind = null;
-      s.screen = 'shop';
+      s.hp = Math.min(s.maxHp, s.hp + Math.ceil(s.maxHp * 0.25));
+      s.offer = this.rollOffer('jefe');
+      s.offerKind = 'jefe';
     } else {
-      s.offer = this.rollOffer(e.kind === 'elite' ? 'elite' : 'normal');
       s.offerKind = e.kind === 'elite' ? 'elite' : 'normal';
-      s.screen = 'reward';
+      s.offer = this.rollOffer(s.offerKind);
     }
+    s.screen = 'reward';
     s.combat = null;
     this.commit();
+  }
+
+  /* ======================= Objets ======================= */
+
+  private idByEffect(effect: Item['effect']): string | undefined {
+    return this.content.items.find(i => i.effect === effect)?.id;
   }
 
   /** Objets encore obtenables d'une catégorie. */
@@ -634,23 +901,26 @@ export class Game {
       .map(i => i.id);
   }
 
-  private rollOffer(kind: 'normal' | 'elite'): Offer[] {
-    const pickN = (ids: string[], n: number) => {
-      const out: string[] = [];
-      let pool = [...ids];
-      while (out.length < n && pool.length) {
-        const id = this.rng.weighted(pool, x => RARITY_WEIGHT[this.itemById.get(x)!.rarity]);
-        out.push(id);
-        pool = pool.filter(x => x !== id);
-      }
-      return out;
-    };
-    if (kind === 'elite') {
-      const r = pickN(this.available('reliquia'), 3);
-      return (r.length ? r : pickN(this.available('aide'), 3)).map(id => ({ id }));
+  private pickItems(ids: string[], n: number, weights: Record<Rarity, number>): string[] {
+    const out: string[] = [];
+    let pool = [...ids];
+    while (out.length < n && pool.length) {
+      const id = this.rng.weighted(pool, x => weights[this.itemById.get(x)!.rarity]);
+      out.push(id);
+      pool = pool.filter(x => x !== id);
     }
-    const mix = [...pickN(this.available('aide'), 2), ...pickN(this.available('reliquia'), 2)];
-    return this.rng.shuffle(mix).slice(0, 3).map(id => ({ id }));
+    return out;
+  }
+
+  private rollOffer(kind: 'normal' | 'elite' | 'jefe'): Offer[] {
+    const n = 3 + this.relicCount('extraChoice');
+    if (kind !== 'normal') {
+      const r = this.pickItems(this.available('reliquia'), n, kind === 'jefe' ? BOSS_RARITY_WEIGHT : RARITY_WEIGHT);
+      return (r.length ? r : this.pickItems(this.available('aide'), n, RARITY_WEIGHT)).map(id => ({ id }));
+    }
+    const mix = [...this.pickItems(this.available('aide'), 2, RARITY_WEIGHT), ...this.pickItems(this.available('reliquia'), 2, RARITY_WEIGHT)];
+    const extra = this.pickItems(this.available('aide').filter(id => !mix.includes(id)), n - 3, RARITY_WEIGHT);
+    return this.rng.shuffle([...mix, ...extra]).slice(0, n).map(id => ({ id }));
   }
 
   private gain(id: string) {
@@ -665,12 +935,26 @@ export class Game {
     } else s.inv[id] = (s.inv[id] ?? 0) + 1;
   }
 
+  private gainRandom(kind: Item['kind'], rarity?: Rarity): string | null {
+    let ids = this.available(kind);
+    if (rarity) {
+      const r = ids.filter(id => this.itemById.get(id)!.rarity === rarity);
+      if (r.length) ids = r;
+    }
+    if (!ids.length) return null;
+    const id = this.rng.weighted(ids, x => RARITY_WEIGHT[this.itemById.get(x)!.rarity]);
+    this.gain(id);
+    return id;
+  }
+
   /** Récompense : prendre l'objet n°i (ou passer si i < 0). */
   take(i: number) {
     const s = this.state;
     if (s.screen !== 'reward' || !s.offer) return;
     if (i >= 0 && s.offer[i]) this.gain(s.offer[i].id);
-    this.nextRoom();
+    if (s.offerKind === 'jefe') this.nextAct();
+    else this.toMap();
+    this.commit();
   }
 
   buy(i: number): boolean {
@@ -685,35 +969,221 @@ export class Game {
     return true;
   }
 
-  static readonly MEAL_PRICE = 4;
-  static readonly MEAL_HEAL = 5;
   buyMeal(): boolean {
-    const s = this.state;
-    if (s.screen !== 'shop' || s.gold < Game.MEAL_PRICE || s.hp >= s.maxHp) return false;
-    s.gold -= Game.MEAL_PRICE;
-    s.hp = Math.min(s.maxHp, s.hp + Game.MEAL_HEAL);
+    const s = this.state, meal = this.content.sequence.meal;
+    if (s.screen !== 'shop' || s.gold < meal.price || s.hp >= s.maxHp) return false;
+    s.gold -= meal.price;
+    s.hp = Math.min(s.maxHp, s.hp + meal.heal);
     this.commit();
     return true;
   }
 
   leaveShop() {
-    const s = this.state;
-    if (s.screen !== 'shop') return;
-    s.act++;
-    s.room = 0;
-    this.startFight();
+    if (this.state.screen !== 'shop') return;
+    this.toMap();
     this.commit();
   }
 
-  private nextRoom() {
+  /* ======================= Ofrenda (repos) ======================= */
+
+  restHealAmount(): number {
+    return Math.ceil(this.state.maxHp * 0.3);
+  }
+
+  /** Aides possédées qui peuvent être améliorées. */
+  upgradable(): string[] {
+    return Object.keys(this.state.inv).filter(id => this.state.inv[id] > 0 && this.itemById.get(id)?.upgrade && !this.state.upgrades[id]);
+  }
+
+  restHeal() {
     const s = this.state;
-    s.room++;
-    if (s.room >= s.rooms[s.act].length) {
-      s.act++;
-      s.room = 0;
-    }
-    this.startFight();
+    if (s.screen !== 'rest' || !s.rest || s.rest.result) return;
+    const before = s.hp;
+    s.hp = Math.min(s.maxHp, s.hp + this.restHealAmount());
+    s.rest.result = { text: 'Tu te reposes près de la ofrenda.', lines: [`+${s.hp - before} PV`] };
     this.commit();
+  }
+
+  restUpgrade(id: string) {
+    const s = this.state;
+    if (s.screen !== 'rest' || !s.rest || s.rest.result || !this.upgradable().includes(id)) return;
+    s.upgrades[id] = true;
+    const it = this.itemById.get(id)!;
+    s.rest.result = { text: `Tu déposes ton ${it.name} sur la ofrenda. Il brille…`, lines: [it.upgrade ?? `${it.name} amélioré`] };
+    this.commit();
+  }
+
+  /* ======================= Coffre ======================= */
+
+  chestOpen() {
+    const s = this.state, ch = s.chest;
+    if (s.screen !== 'chest' || !ch || ch.result || ch.quiz) return;
+    if (ch.locked) ch.quiz = this.makeQuiz({ write: true });
+    else ch.result = { text: 'Le coffre s\'ouvre.', lines: this.loot(false) };
+    this.commit();
+  }
+
+  chestAnswer(value: string) {
+    const s = this.state, ch = s.chest;
+    if (s.screen !== 'chest' || !ch?.quiz || ch.result) return;
+    const v = this.answerQuiz(ch.quiz, value);
+    if (!v) return;
+    ch.result = v === 'ko'
+      ? { text: 'Le cadenas résiste. Tu récupères quelques monedas tombées par terre.', lines: this.applyEffects([{ type: 'gold', value: 2 }]) }
+      : { text: 'Le cadenas s\'ouvre ! Ce coffre cachait un trésor.', lines: this.loot(true) };
+    this.commit();
+  }
+
+  private loot(rich: boolean): string[] {
+    const lines: string[] = [];
+    if (rich || this.rng.chance(0.55)) {
+      const id = this.gainRandom('reliquia', rich ? (this.rng.chance(0.3) ? 'legendaria' : 'rara') : undefined);
+      if (id) lines.push(`Nouvelle relique : ${this.itemById.get(id)!.emoji} ${this.itemById.get(id)!.name}`);
+    }
+    if (!lines.length) {
+      for (let k = 0; k < 2; k++) {
+        const id = this.gainRandom('aide');
+        if (id) lines.push(`Nouvelle aide : ${this.itemById.get(id)!.emoji} ${this.itemById.get(id)!.name}`);
+      }
+    }
+    lines.push(...this.applyEffects([{ type: 'gold', value: 2 + this.rng.int(4) }]));
+    return lines;
+  }
+
+  /* ======================= Événements ======================= */
+
+  /** Le choix n°i est-il possible ? Renvoie la raison sinon. */
+  choiceBlock(i: number): string | null {
+    const ev = this.currentEvent, ch = ev?.choices[i];
+    if (!ch) return 'inconnu';
+    const r = ch.require;
+    if (r?.gold && this.state.gold < r.gold) return `il faut ${r.gold} monedas`;
+    if (r?.aide && Object.values(this.state.inv).reduce((a, b) => a + b, 0) < r.aide) return 'il faut une aide';
+    return null;
+  }
+
+  eventChoose(i: number) {
+    const s = this.state, st = s.event, ev = this.currentEvent;
+    if (s.screen !== 'event' || !st || !ev || st.choice !== null || this.choiceBlock(i)) return;
+    st.choice = i;
+    const ch = ev.choices[i];
+    if (ch.quiz) st.quiz = this.makeQuiz({ themes: ch.quiz.themes, write: ch.quiz.write });
+    else this.resolveEvent(ch.outcome!);
+    this.commit();
+  }
+
+  eventAnswer(value: string) {
+    const s = this.state, st = s.event, ev = this.currentEvent;
+    if (s.screen !== 'event' || !st?.quiz || !ev || st.choice === null || st.result) return;
+    const v = this.answerQuiz(st.quiz, value);
+    if (!v) return;
+    const ch = ev.choices[st.choice];
+    this.resolveEvent(v === 'ko' ? ch.failure! : ch.success!);
+    this.commit();
+  }
+
+  private resolveEvent(o: EventOutcome) {
+    const st = this.state.event!;
+    const lines = this.applyEffects(o.effects);
+    let text = o.text, textFr = o.textFr;
+    const fight = o.effects.find(e => e.type === 'fight');
+    if (fight && fight.type === 'fight') st.pendingFight = fight.kind;
+    // un tirage au sort ajoute son propre texte
+    const extra = lines.filter(l => l.startsWith('§')).map(l => l.slice(1));
+    if (extra.length) {
+      const [es, fr] = extra[0].split('¦');
+      text += ' ' + es;
+      if (textFr && fr) textFr += ' ' + fr;
+    }
+    st.result = { text, textFr, lines: lines.filter(l => !l.startsWith('§')) };
+  }
+
+  /** Quitte l'événement : retour à la carte ou combat déclenché par le choix. */
+  eventContinue() {
+    const s = this.state, st = s.event;
+    if (s.screen !== 'event' || !st?.result) return;
+    if (st.pendingFight) this.startFight(this.pickEnemy(st.pendingFight));
+    else this.toMap();
+    this.commit();
+  }
+
+  /** Continue après une salle sans combat (coffre, repos). */
+  roomContinue() {
+    const s = this.state;
+    if ((s.screen === 'chest' && s.chest?.result) || (s.screen === 'rest' && s.rest?.result)) {
+      this.toMap();
+      this.commit();
+    }
+  }
+
+  /** Applique les effets d'un événement. Renvoie des lignes lisibles (en français). */
+  private applyEffects(effects: EventEffect[]): string[] {
+    const s = this.state, out: string[] = [];
+    for (const e of effects) {
+      switch (e.type) {
+        case 'hp': {
+          const before = s.hp;
+          s.hp = Math.max(1, Math.min(s.maxHp, s.hp + e.value));
+          if (s.hp !== before) out.push(`${s.hp > before ? '+' : '−'}${Math.abs(s.hp - before)} PV`);
+          break;
+        }
+        case 'maxHp':
+          s.maxHp = Math.max(1, s.maxHp + e.value);
+          s.hp = Math.min(s.hp, s.maxHp);
+          out.push(`${e.value > 0 ? '+' : '−'}${Math.abs(e.value)} PV maximum`);
+          break;
+        case 'gold': {
+          const d = Math.max(-s.gold, e.value);
+          s.gold += d;
+          if (d) out.push(`${d > 0 ? '+' : '−'}${Math.abs(d)} 🪙`);
+          break;
+        }
+        case 'item': {
+          let id: string | null = null;
+          if (e.id) {
+            const it = this.itemById.get(e.id);
+            if (it && (it.kind === 'aide' || (s.relics[e.id] ?? 0) < (it.max ?? 1))) {
+              this.gain(e.id);
+              id = e.id;
+            } else if (it) {
+              out.push(...this.applyEffects([{ type: 'gold', value: 5 }]));
+              break;
+            }
+          } else id = this.gainRandom(e.kind ?? 'aide', e.rarity);
+          if (id) {
+            const it = this.itemById.get(id)!;
+            out.push(`${it.kind === 'reliquia' ? 'Nouvelle relique' : 'Nouvelle aide'} : ${it.emoji} ${it.name}`);
+          }
+          break;
+        }
+        case 'loseItem': {
+          const owned = Object.keys(s.inv).filter(id => s.inv[id] > 0);
+          if (owned.length) {
+            const id = this.rng.pick(owned);
+            s.inv[id]--;
+            out.push(`Tu donnes : ${this.itemById.get(id)?.name ?? id}`);
+          }
+          break;
+        }
+        case 'upgrade': {
+          const ids = this.upgradable();
+          if (ids.length) {
+            const id = this.rng.pick(ids);
+            s.upgrades[id] = true;
+            out.push(this.itemById.get(id)!.upgrade ?? `${this.itemById.get(id)!.name} amélioré`);
+          } else out.push(...this.applyEffects([{ type: 'gold', value: 4 }]));
+          break;
+        }
+        case 'fight':
+          break;
+        case 'random': {
+          const o = this.rng.pick(e.outcomes);
+          out.push(`§${o.text}¦${o.textFr ?? ''}`, ...this.applyEffects(o.effects));
+          break;
+        }
+      }
+    }
+    return out;
   }
 
   /* ======================= Pouvoirs ======================= */
@@ -721,12 +1191,18 @@ export class Game {
   usePower(id: string): boolean {
     if (this.powerBlock(id)) return false;
     const s = this.state, c = s.combat, it = this.itemById.get(id)!, q = this.question;
+    const up = this.isUpgraded(id);
+    const consume = () => {
+      if (s.inv[id] > 0) s.inv[id]--;
+      else if (it.effect === 'translate' && c) c.freeTranslateUsed = true;
+    };
     switch (it.effect) {
       case 'heal':
-        s.hp = Math.min(s.maxHp, s.hp + (it.value ?? 5));
+        s.hp = Math.min(s.maxHp, s.hp + (it.value ?? 5) + (up ? 3 : 0));
         break;
       case 'translate':
         c!.used.translate = true;
+        if (up) c!.used.hint = true;
         break;
       case 'hint':
         c!.used.hint = true;
@@ -735,24 +1211,33 @@ export class Game {
         c!.used.scissors = true;
         if (c!.q.mode === 'qcm') c!.hidden = this.rng.shuffle(c!.q.options.filter(o => o !== q!.answer)).slice(0, 2);
         else c!.mask = maskAnswer(q!.answer);
+        if (up && c!.timeMax) {
+          c!.timeLeft += 10000;
+          c!.timeMax = Math.max(c!.timeMax, c!.timeLeft);
+        }
         break;
       case 'time':
-        c!.timeLeft += (it.value ?? 15) * 1000;
+        c!.timeLeft += ((it.value ?? 15) + (up ? 10 : 0)) * 1000;
         c!.timeMax = Math.max(c!.timeMax, c!.timeLeft);
         break;
+      case 'cancelIntent':
+        c!.canceled = true;
+        c!.fog = false;
+        if (up) c!.shield = 0;
+        break;
       case 'swap':
-        s.inv[id]--;
-        this.ask(true);
+        consume();
+        this.ask(true, up);
         this.commit();
         return true;
       case 'oracle':
-        s.inv[id]--;
+        consume();
         this.answer(q!.answer, 'oracle');
         return true;
       default:
         return false;
     }
-    s.inv[id]--;
+    consume();
     this.commit();
     return true;
   }
@@ -762,6 +1247,8 @@ export class Game {
     const q = this.question;
     if (!q) return '';
     const leaks = normalize(q.explanation).includes(normalize(q.answer));
+    const hintId = this.idByEffect('hint');
+    if (hintId && this.isUpgraded(hintId)) return leaks ? autoHint(q.answer) : `${q.explanation} ${autoHint(q.answer)}`;
     return leaks ? autoHint(q.answer) : q.explanation;
   }
 
@@ -775,7 +1262,7 @@ export class Game {
     this.commit();
   }
 
-  /** Abandon volontaire (bouton « Quitter la partie »). */
+  /** Abandon volontaire. */
   abandon() {
     this.end(false);
   }

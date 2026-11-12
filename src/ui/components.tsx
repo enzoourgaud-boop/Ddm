@@ -109,7 +109,11 @@ export function ItemCard({ item, onClick, price, sold, disabled }: { item: Item;
 export function Powers({ game, inCombat }: { game: Game; inCombat: boolean }) {
   const s = game.state;
   const aides = Object.keys(s.inv).filter(id => s.inv[id] > 0 && game.item(id));
+  // Traductor gratuit du Diccionario
+  const freeId = inCombat && game.freeTranslateAvailable() ? game.content.items.find(i => i.effect === 'translate')?.id : undefined;
+  if (freeId && !aides.includes(freeId)) aides.unshift(freeId);
   const relics = Object.keys(s.relics).filter(id => game.item(id));
+  const syn = game.synergyProgress();
   return (
     <div class="poderes" role="group" aria-label="Tes pouvoirs">
       <span class="lbl">Tes pouvoirs</span>
@@ -117,12 +121,18 @@ export function Powers({ game, inCombat }: { game: Game; inCombat: boolean }) {
         const it = game.item(id)!;
         const block = game.powerBlock(id);
         const dis = it.effect === 'heal' ? !!block : !inCombat || !!block;
+        const up = game.isUpgraded(id);
+        const n = s.inv[id] ?? 0;
+        const free = id === freeId && game.freeTranslateAvailable();
+        const desc = up && it.upgrade ? it.upgrade : it.description;
         return (
-          <button class={`pod ${it.rarity}`} key={id} disabled={dis} title={`${it.description}${block && !it.auto ? ` (${block})` : ''}`} onClick={() => game.usePower(id)}>
+          <button class={`pod ${it.rarity} ${up ? 'mejor' : ''}`} key={id} disabled={dis} title={`${desc}${block && !it.auto ? ` (${block})` : ''}`} onClick={() => game.usePower(id)}>
             <span aria-hidden="true">{it.emoji}</span>
             {it.name}
+            {up ? '+' : ''}
             {it.auto ? ' (auto)' : ''}
-            <em aria-label={`${s.inv[id]} disponible(s)`}>{s.inv[id]}</em>
+            {n > 0 && <em aria-label={`${n} disponible(s)`}>{n}</em>}
+            {free && <em class="gratis" title="Gratuit grâce au Diccionario">gratis</em>}
           </button>
         );
       })}
@@ -136,6 +146,20 @@ export function Powers({ game, inCombat }: { game: Game; inCombat: boolean }) {
           </span>
         );
       })}
+      {syn.map(({ synergy, owned }) => {
+        const done = owned === synergy.items.length;
+        const names = synergy.items.map(id => `${game.item(id)?.emoji ?? ''}${(s.relics[id] ?? 0) > 0 ? '✓' : '…'}`).join(' ');
+        return (
+          <span class={`pod sinergia ${done ? 'on' : ''}`} key={synergy.id} tabIndex={0} title={synergy.description} aria-label={`Ensemble ${synergy.name} : ${owned} sur ${synergy.items.length}. ${synergy.description}`}>
+            <span aria-hidden="true">{synergy.emoji}</span>
+            {synergy.name}
+            <em>
+              {owned}/{synergy.items.length}
+            </em>
+            <small aria-hidden="true">{names}</small>
+          </span>
+        );
+      })}
       {!aides.length && !relics.length && <span class="muted">Aucun pour l'instant. Gagne un combat pour en choisir un.</span>}
     </div>
   );
@@ -144,8 +168,8 @@ export function Powers({ game, inCombat }: { game: Game; inCombat: boolean }) {
 export function Hud({ game, hit }: { game: Game; hit?: boolean }) {
   const s = game.state;
   const act = game.act;
-  const rooms = s.rooms[s.act] ?? [];
   const th = game.streakThreshold;
+  const floor = game.currentNode ? game.currentNode.floor + 1 : 0;
   return (
     <header class={`hud ${hit ? 'hit' : ''}`}>
       <div class="hp">
@@ -161,14 +185,13 @@ export function Hud({ game, hit }: { game: Game; hit?: boolean }) {
       <span class="chip" title="Monedas">🪙 {s.gold}</span>
       {s.poison > 0 && <span class="chip veneno" title="Poison : −1 PV par question">☠️ {s.poison}</span>}
       {act && (
-        <div class="ruta" aria-label={`Acte ${s.act + 1}, salle ${Math.min(s.room + 1, rooms.length)} sur ${rooms.length}`}>
+        <div class="ruta" aria-label={`Acte ${s.act + 1} sur ${game.content.sequence.acts.length}, étage ${floor} sur ${s.map.floors}`}>
           <span>
             Acte {s.act + 1} · {act.name}
           </span>
-          {rooms.map((id, i) => {
-            const k = game.enemyDef(id)?.kind;
-            return <i key={i} class={`${k === 'jefe' || k === 'final' ? 'jefe' : k === 'elite' ? 'elite' : ''} ${i < s.room ? 'ok' : i === s.room ? 'act' : ''}`} />;
-          })}
+          {Array.from({ length: s.map.floors }, (_, i) => (
+            <i key={i} class={`${i === s.map.floors - 1 ? 'jefe' : ''} ${i < floor - 1 ? 'ok' : i === floor - 1 ? 'act' : ''}`} />
+          ))}
         </div>
       )}
     </header>
