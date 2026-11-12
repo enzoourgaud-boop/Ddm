@@ -14,8 +14,14 @@ import { PapelPicado, useGame } from './components';
 import { AchievementsScreen, CarnetScreen, CollectionScreen, Over, ProfileScreen, Title } from './Menu';
 import { ChestScreen, EventScreen, MapScreen, RestScreen } from './Rooms';
 import { Reward, Shop } from './screens';
-import { TeacherSpace } from './Teacher';
 import { Transition } from './Transition';
+import { OptionsPanel } from './Options';
+import { Petals } from './Petals';
+import { play } from './sfx';
+import { loadPrefs, type Prefs, savePrefs } from '../prefs';
+import type { ComponentType } from 'preact';
+
+type TeacherProps = Parameters<typeof import('./Teacher').TeacherSpace>[0];
 
 
 function loadSettings(): Settings {
@@ -93,6 +99,13 @@ function Main({ content, fromPack, reload }: { content: Content; fromPack: boole
   const [menu, setMenu] = useState<MenuScreen>(() => (typeof location !== 'undefined' && location.hash === '#prof' ? 'prof' : 'title'));
   const [unlocks, setUnlocks] = useState<Unlocks | null>(null);
   const [persistent, setPersistent] = useState(storage.persistent);
+  const [prefs, setPrefsState] = useState<Prefs>(loadPrefs);
+  const [optionsOpen, setOptionsOpen] = useState(false);
+  const [Teacher, setTeacher] = useState<ComponentType<TeacherProps> | null>(null);
+  const setPrefs = (p: Prefs) => {
+    setPrefsState(p);
+    savePrefs(p);
+  };
   const initialSeed = useMemo(() => urlSeed() || fromLink?.seed || classe?.seed || '', []);
   useGame(game);
 
@@ -143,7 +156,49 @@ function Main({ content, fromPack, reload }: { content: Content; fromPack: boole
 
   const screen = game?.state.screen ?? menu;
   const room = game ? `${game.state.act}-${game.state.node}` : '';
-  useEffect(() => window.scrollTo({ top: 0 }), [screen, room]);
+  useEffect(() => {
+    window.scrollTo({ top: 0 });
+    // clavier et lecteur d'écran : le focus va au titre du nouvel écran (si rien d'autre ne l'a pris)
+    requestAnimationFrame(() => {
+      const a = document.activeElement;
+      if (!a || a === document.body || !document.getElementById('app')?.contains(a)) {
+        const h = document.querySelector<HTMLElement>('#app h1, #app h2');
+        if (h) {
+          h.tabIndex = -1;
+          h.focus({ preventScroll: true });
+        }
+      }
+    });
+    if (screen === 'map' && game?.state.node) play('step');
+    if (screen === 'reward' || screen === 'shop' || screen === 'chest') play('coin');
+    if (screen === 'over') play(game?.state.result === 'win' ? 'victory' : 'defeat');
+  }, [screen, room]);
+  useEffect(() => {
+    if (unlocks && (unlocks.cards.length || unlocks.achievements.length || unlocks.characters.length)) setTimeout(() => play('unlock'), 1600);
+  }, [unlocks]);
+  // liens #prof et #classe-XXXXXX ouverts alors que le jeu tourne déjà (sans rechargement)
+  useEffect(() => {
+    const onHash = () => {
+      if (location.hash === '#prof') {
+        setGame(null);
+        setMenu('prof');
+        return;
+      }
+      const c = classFromHash(content);
+      if (c) {
+        setSettings({ ...DEFAULT_SETTINGS, ...c.settings });
+        const info = { code: c.code, seed: c.seed };
+        storage.set('classe', info);
+        setClasse(info);
+      }
+    };
+    window.addEventListener('hashchange', onHash);
+    return () => window.removeEventListener('hashchange', onHash);
+  }, []);
+  // l'espace professeur est chargé seulement quand on l'ouvre (le jeu des élèves reste léger)
+  useEffect(() => {
+    if (menu === 'prof' && !Teacher) void import('./Teacher').then(m => setTeacher(() => m.TeacherSpace));
+  }, [menu]);
 
   const setSettings = (s: Settings) => {
     setSettingsState(s);
@@ -195,7 +250,7 @@ function Main({ content, fromPack, reload }: { content: Content; fromPack: boole
       <>
         <PapelPicado />
         <main id="app">
-          <TeacherSpace
+          {!Teacher ? <p class="muted">Chargement de l’espace professeur…</p> : <Teacher
             content={content}
             fromPack={fromPack}
             settings={settings}
@@ -210,7 +265,7 @@ function Main({ content, fromPack, reload }: { content: Content; fromPack: boole
               if (location.hash === '#prof') history.replaceState(null, '', location.pathname + location.search);
               setMenu('title');
             }}
-          />
+          />}
         </main>
       </>
     );
@@ -243,9 +298,15 @@ function Main({ content, fromPack, reload }: { content: Content; fromPack: boole
     );
   }
 
+  const petals = prefs.petals && (screen === 'title' || screen === 'map' || screen === 'over');
   return (
     <>
+      {petals && <Petals key={screen === 'over' ? 'fin' : 'calme'} burst={screen === 'over' && game?.state.result === 'win'} />}
       <PapelPicado />
+      <button class="btn-opciones" onClick={() => setOptionsOpen(true)} aria-label="Options : son, taille du texte, police, animations" title="Options">
+        ⚙️
+      </button>
+      {optionsOpen && <OptionsPanel prefs={prefs} onPrefs={setPrefs} settings={settings} onSettings={setSettings} onClose={() => setOptionsOpen(false)} />}
       {game && game.state.screen !== 'combat' && <Transition key={`${screen}-${room}`} />}
       <main id="app">
         {!persistent && (

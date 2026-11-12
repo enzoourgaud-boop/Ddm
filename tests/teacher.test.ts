@@ -76,3 +76,17 @@ describe('modifications du professeur', () => {
     expect((raw.questions[0].data as { prompt: string }[])[0].prompt).not.toBe('Énoncé modifié');
   });
 });
+
+describe('fichier professeur.json dans le dépôt', () => {
+  it('ses questions remplacent celles d’origine de même identifiant, sans doublon', () => {
+    const raw = readSequence('dia-de-muertos');
+    const orig = (raw.questions[0].data as { id: string; prompt: string }[])[0];
+    const mod = { ...(orig as object), prompt: 'Version du professeur' };
+    const neu = { id: 'prof-extra', type: 'vrai-faux', theme: 'cultura', notions: ['cultura-fiesta'], level: 1, prompt: 'Se baila mucho.', answer: 'verdadero', explanation: 'Sí.', source: 'texto-ce' };
+    const { content: c, issues } = parseContent({ ...raw, questions: [...raw.questions, { file: 'questions/professeur.json', data: [mod, neu] }] });
+    expect(issues.filter(i => i.level === 'erreur')).toEqual([]);
+    expect(c!.questions.filter(q => q.id === orig.id)).toHaveLength(1);
+    expect(c!.questions.find(q => q.id === orig.id)!.prompt).toBe('Version du professeur');
+    expect(c!.questions.some(q => q.id === 'prof-extra')).toBe(true);
+  });
+});

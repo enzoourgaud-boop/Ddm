@@ -4,6 +4,7 @@ import type { Game } from '../engine/game';
 import { AnswerArea, Prompt, Solution } from './Answer';
 import { BattleScene } from './battle/BattleScene';
 import { Hud, Powers } from './components';
+import { play } from './sfx';
 
 function Crono({ game }: { game: Game }) {
   const [, setTick] = useState(0);
@@ -41,6 +42,23 @@ export function Combat({ game }: { game: Game }) {
 
   useEffect(() => {
     if (fb) contRef.current?.focus({ preventScroll: true });
+  }, [qKey, !!fb]);
+  // sons du combat
+  useEffect(() => {
+    if (!fb) {
+      if (c.turn === 1) play('fight');
+      return;
+    }
+    const fx = fb.fx;
+    if (fb.outcome === 'casi') play('casi');
+    else if (fb.outcome === 'ok' || fb.outcome === 'oracle') play(fx.includes('crit') || fx.includes('combo') ? 'crit' : 'ok');
+    else play('ko');
+    if (fx.includes('enemyHit') || fx.includes('reflect')) play('hit');
+    if (fx.includes('playerHit')) play('hurt');
+    if (fx.includes('blocked') || fx.includes('mask') || fx.includes('shieldHit')) play('shield');
+    if (fx.includes('heal') || fx.includes('playerHeal') || fx.includes('revive')) play('heal');
+    if (fx.includes('steal')) play('coin');
+    if (fx.includes('phase')) play('phase');
   }, [qKey, !!fb]);
 
   const theme = game.content.sequence.themes.find(t => t.id === q.theme);

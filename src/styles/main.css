@@ -11,7 +11,7 @@
   --display: 'Sancreek', 'Rockwell', 'Georgia', serif;
   --body: 'Atkinson Hyperlegible', 'Verdana', 'Segoe UI', sans-serif;
   --r: 14px;
-  --base: 17px;
+  --base: 1.0625rem;
 }
 * { box-sizing: border-box; }
 html { background: var(--noche); min-height: 100%; }

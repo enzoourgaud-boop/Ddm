@@ -16,6 +16,9 @@ function zodIssues(where: string, err: z.ZodError): Issue[] {
   return err.issues.map(i => ({ level: 'erreur', where: `${where}${i.path.length ? ' › ' + i.path.join('.') : ''}`, message: i.message }));
 }
 
+/** Fichier des ajouts et modifications du professeur. */
+export const isTeacherFile = (file: string) => /(^|\/)professeur\.json$/.test(file);
+
 export interface RawContent {
   sequence: unknown;
   questions: { file: string; data: unknown }[];
@@ -43,7 +46,10 @@ export function parseContent(raw: RawContent): { content: Content | null; issues
   if (!scenes.success) issues.push(...zodIssues('scenes.json', scenes.error));
 
   const questions: Question[] = [];
-  for (const { file, data } of raw.questions) {
+  // le fichier « professeur.json » (exporté depuis l'espace professeur) est lu en dernier :
+  // ses questions remplacent celles d'origine qui portent le même identifiant
+  const files = [...raw.questions].sort((x, y) => Number(isTeacherFile(x.file)) - Number(isTeacherFile(y.file)));
+  for (const { file, data } of files) {
     if (!Array.isArray(data)) {
       issues.push({ level: 'erreur', where: file, message: 'le fichier doit contenir une liste [ … ]' });
       continue;
@@ -51,8 +57,11 @@ export function parseContent(raw: RawContent): { content: Content | null; issues
     data.forEach((q, i) => {
       const r = QuestionSchema.safeParse(q);
       const id = (q && typeof q === 'object' && 'id' in q && String((q as { id: unknown }).id)) || `#${i + 1}`;
-      if (r.success) questions.push(r.data);
-      else issues.push(...zodIssues(`${file} › ${id}`, r.error));
+      if (r.success) {
+        const prev = isTeacherFile(file) ? questions.findIndex(x => x.id === r.data.id) : -1;
+        if (prev >= 0) questions[prev] = r.data;
+        else questions.push(r.data);
+      } else issues.push(...zodIssues(`${file} › ${id}`, r.error));
     });
   }
   if (!seq.success || !enemies.success || !items.success || !events.success || !synergies.success || !scenes.success) return { content: null, issues };

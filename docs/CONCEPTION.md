@@ -266,3 +266,13 @@ Toutes les options par défaut ont été retenues :
 - Les modifications du professeur sont une couche à part (`prof:overlay` dans le stockage local) : la banque d'origine n'est jamais écrasée, et un bouton permet toujours de revenir en arrière (même si le contenu devenait invalide).
 - CSV : une ligne par question ; listes séparées par « | » ; colonne « avance » en JSON pour les types ordre / association / scène.
 - Une séquence complète peut être exportée et importée (« pack ») : le moteur ne contient rien de propre au Día de Muertos.
+
+### Ajustements faits pendant l'étape 6
+- Sons générés en Web Audio (aucun fichier) : bonne réponse, coup critique, erreur, coups, soin, bouclier, phase, victoire, défaite, déblocage. Coupables et réglables.
+- Options de confort (⚙️) : taille du texte (normal, grand, vidéoprojecteur), police OpenDyslexic, animations réduites (en plus du réglage système), pétales, chrono.
+- Pétales de cempasúchil en arrière-plan (canvas) sur l'accueil, la carte et la victoire.
+- PWA (vite-plugin-pwa, Workbox) : tout le jeu est mis en cache au premier chargement ; icônes originales.
+- L'espace professeur est chargé à part (import dynamique).
+- `questions/professeur.json` dans le dépôt remplace les questions d'origine de même identifiant.
+- Tests de bout en bout (Playwright) : partie complète (ordinateur et téléphone), espace professeur + lien de classe, hors-ligne, clavier.
+- Mise en ligne : GitHub Actions → GitHub Pages, avec validation de la banque et tests avant publication.

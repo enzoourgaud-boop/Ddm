@@ -7,6 +7,7 @@ import { useEffect, useRef, useState } from 'preact/hooks';
 import type { Fx, Game } from '../../engine/game';
 import { intentInfo, MODIFIERS } from '../components';
 import { drawEnemy, drawPlayer } from './sprites';
+import { motionReduced } from '../../prefs';
 
 function EnemySprite({ emoji, top }: { emoji: string; top?: string }) {
   const ref = useRef<HTMLCanvasElement>(null);
@@ -24,7 +25,7 @@ function PlayerSprite({ palette }: { palette: Record<string, string> }) {
   return <canvas ref={ref} class="sprite jugador" width={20} height={22} aria-hidden="true" />;
 }
 
-const reduced = () => typeof matchMedia !== 'undefined' && matchMedia('(prefers-reduced-motion: reduce)').matches;
+const reduced = motionReduced;
 
 /** Boîte de dialogue : les messages s'écrivent l'un après l'autre. Un clic affiche tout. */
 export function Dialog({ messages, id }: { messages: string[]; id: string }) {
