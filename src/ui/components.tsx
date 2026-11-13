@@ -107,8 +107,11 @@ export function ItemCard({ item, onClick, price, sold, disabled }: { item: Item;
   );
 }
 
-export function Powers({ game, inCombat }: { game: Game; inCombat: boolean }) {
+export function Powers({ game, inCombat, compact = false }: { game: Game; inCombat: boolean; compact?: boolean }) {
   const s = game.state;
+  // en combat, les reliques (passives) sont réduites à leur icône : un appui affiche ce qu'elles font
+  const [info, setInfo] = useState<string | null>(null);
+  const tell = (key: string) => (compact ? { onClick: () => setInfo(x => (x === key ? null : key)), 'aria-expanded': info === key } : {});
   const aides = Object.keys(s.inv).filter(id => s.inv[id] > 0 && game.item(id));
   // Traductor gratuit du Diccionario
   const freeId = inCombat && game.freeTranslateAvailable() ? game.content.items.find(i => i.effect === 'translate')?.id : undefined;
@@ -116,7 +119,7 @@ export function Powers({ game, inCombat }: { game: Game; inCombat: boolean }) {
   const relics = Object.keys(s.relics).filter(id => game.item(id));
   const syn = game.synergyProgress();
   return (
-    <div class="poderes" role="group" aria-label="Tes pouvoirs">
+    <div class={`poderes ${compact ? 'compacto' : ''}`} role="group" aria-label="Tes pouvoirs">
       <span class="lbl">Tes pouvoirs</span>
       {aides.map(id => {
         const it = game.item(id)!;
@@ -140,9 +143,9 @@ export function Powers({ game, inCombat }: { game: Game; inCombat: boolean }) {
       {relics.map(id => {
         const it = game.item(id)!;
         return (
-          <span class={`pod rel ${it.rarity}`} key={id} title={it.description} tabIndex={0} aria-label={`${it.name} (relique) : ${it.description}`}>
+          <span class={`pod rel ${it.rarity} ${info === id ? 'abierto' : ''}`} key={id} title={`${it.name} : ${it.description}`} tabIndex={0} role={compact ? 'button' : undefined} aria-label={`${it.name} (relique) : ${it.description}`} {...tell(id)} onKeyDown={ev => compact && (ev.key === 'Enter' || ev.key === ' ') && (ev.preventDefault(), setInfo(x => (x === id ? null : id)))}>
             <span aria-hidden="true">{it.emoji}</span>
-            {it.name}
+            <span class="nm">{it.name}</span>
             {s.relics[id] > 1 && <em>{s.relics[id]}</em>}
           </span>
         );
@@ -151,9 +154,9 @@ export function Powers({ game, inCombat }: { game: Game; inCombat: boolean }) {
         const done = owned === synergy.items.length;
         const names = synergy.items.map(id => `${game.item(id)?.emoji ?? ''}${(s.relics[id] ?? 0) > 0 ? '✓' : '…'}`).join(' ');
         return (
-          <span class={`pod sinergia ${done ? 'on' : ''}`} key={synergy.id} tabIndex={0} title={synergy.description} aria-label={`Ensemble ${synergy.name} : ${owned} sur ${synergy.items.length}. ${synergy.description}`}>
+          <span class={`pod sinergia ${done ? 'on' : ''} ${info === synergy.id ? 'abierto' : ''}`} key={synergy.id} tabIndex={0} title={`${synergy.name} : ${synergy.description}`} role={compact ? 'button' : undefined} aria-label={`Ensemble ${synergy.name} : ${owned} sur ${synergy.items.length}. ${synergy.description}`} {...tell(synergy.id)} onKeyDown={ev => compact && (ev.key === 'Enter' || ev.key === ' ') && (ev.preventDefault(), setInfo(x => (x === synergy.id ? null : synergy.id)))}>
             <span aria-hidden="true">{synergy.emoji}</span>
-            {synergy.name}
+            <span class="nm">{synergy.name}</span>
             <em>
               {owned}/{synergy.items.length}
             </em>
@@ -162,6 +165,12 @@ export function Powers({ game, inCombat }: { game: Game; inCombat: boolean }) {
         );
       })}
       {!aides.length && !relics.length && <span class="muted">Aucun pour l'instant. Gagne un combat pour en choisir un.</span>}
+      {compact && info && (() => {
+        const it = game.item(info);
+        const sy = syn.find(x => x.synergy.id === info)?.synergy;
+        const txt = it ? `${it.name} : ${it.description}` : sy ? `${sy.name} : ${sy.description}` : '';
+        return txt ? <p class="pod-info" role="status">{txt}</p> : null;
+      })()}
     </div>
   );
 }
@@ -185,6 +194,11 @@ export function Hud({ game, hit, noHp }: { game: Game; hit?: boolean; noHp?: boo
       <span class={`chip ${s.streak >= th ? 'on' : ''}`} title="Bonnes réponses d'affilée">🔥 {s.streak}</span>
       <span class="chip" title="Monedas">🪙 {s.gold}</span>
       {s.poison > 0 && <span class="chip veneno" title="Poison : −1 PV par question">☠️ {s.poison}</span>}
+      {game.pendingCount > 0 && (
+        <span class="chip almas" title="Almas pendientes : des questions ratées qui reviendront. Réussis-les pour les libérer (+1 PV chacune)." aria-label={`${game.pendingCount} almas pendientes`}>
+          👻 {game.pendingCount}
+        </span>
+      )}
       {act && (
         <div class="ruta" aria-label={`Acte ${s.act + 1} sur ${game.content.sequence.acts.length}, étage ${floor} sur ${s.map.floors}`}>
           <span>

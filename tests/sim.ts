@@ -11,18 +11,33 @@ export interface SimResult {
   answers: number;
   act: number;
   rooms: Record<string, number>;
+  /** Identifiants des questions posées, dans l'ordre (échauffement compris). */
+  asked: string[];
+  freed: number;
+  warmup: number;
+  maxHp: number;
+}
+
+export interface SimOptions {
+  /** Questions ratées aux parties précédentes (« almas pendientes »). */
+  pending?: string[];
+  /** Branche des observateurs sur la partie (révision de Leitner, par exemple). */
+  attach?: (g: Game) => void;
 }
 
 /** Durées estimées d'un élève de 5e (secondes). */
 export const T = { qcm: 9, write: 16, tf: 7, order: 18, match: 15, place: 20, feedback: 4, reward: 10, shop: 25, map: 4, event: 25, rest: 8, chest: 8 };
 
-export function simulate(content: Content, seed: string, accuracy: number, settings: Settings = { ...DEFAULT_SETTINGS }): SimResult {
-  const g = Game.newRun(content, settings, seed, 0);
+export function simulate(content: Content, seed: string, accuracy: number, settings: Settings = { ...DEFAULT_SETTINGS }, opts: SimOptions = {}): SimResult {
+  const g = Game.newRun(content, settings, seed, 0, { pending: opts.pending });
+  opts.attach?.(g);
   const bot = new Rng(`bot-${seed}-${accuracy}`);
-  let sec = 0, answers = 0, guard = 0;
+  let sec = 0, answers = 0, guard = 0, warmup = 0;
   const rooms: Record<string, number> = {};
+  const asked: string[] = [];
   const reply = (quiz: { q: QuizState['q'] }) => {
     const q = g.getQuestion(quiz.q.id)!;
+    asked.push(q.id);
     answers++;
     sec += T[quiz.q.mode];
     if (bot.chance(accuracy)) return canonicalValue(q);
@@ -31,6 +46,17 @@ export function simulate(content: Content, seed: string, accuracy: number, setti
   while (g.state.screen !== 'over' && guard++ < 20000) {
     const s = g.state;
     switch (s.screen) {
+      case 'warmup': {
+        const w = s.warmup!;
+        if (w.quiz.fb) {
+          g.warmupNext();
+          sec += T.feedback;
+        } else {
+          warmup++;
+          g.warmupAnswer(reply(w.quiz));
+        }
+        break;
+      }
       case 'map': {
         const n = bot.pick(g.reachable());
         rooms[n.type] = (rooms[n.type] ?? 0) + 1;
@@ -93,5 +119,5 @@ export function simulate(content: Content, seed: string, accuracy: number, setti
       }
     }
   }
-  return { win: g.state.result === 'win', won: g.state.stats.won, minutes: sec / 60, answers, act: g.state.act, rooms };
+  return { win: g.state.result === 'win', won: g.state.stats.won, minutes: sec / 60, answers, act: g.state.act, rooms, asked, freed: g.state.stats.freed ?? 0, warmup, maxHp: g.state.maxHp };
 }

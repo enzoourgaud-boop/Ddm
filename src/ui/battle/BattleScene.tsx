@@ -28,7 +28,7 @@ function PlayerSprite({ palette }: { palette: Record<string, string> }) {
 const reduced = motionReduced;
 
 /** Boîte de dialogue : les messages s'écrivent l'un après l'autre. Un clic affiche tout. */
-export function Dialog({ messages, id }: { messages: string[]; id: string }) {
+export function Dialog({ messages, id, sr }: { messages: string[]; id: string; sr?: string[] }) {
   // espaces insécables de la typographie française (« ! » jamais seul en début de ligne)
   const full = messages.join('\n').replace(/ ([!?:;»])/g, '\u00a0$1').replace(/« /g, '«\u00a0');
   const [n, setN] = useState(reduced() ? full.length : 0);
@@ -45,7 +45,8 @@ export function Dialog({ messages, id }: { messages: string[]; id: string }) {
   const done = n >= full.length;
   return (
     <div class="dialogo" onClick={() => setN(full.length)} role="log" aria-live="polite">
-      <p class="sr-only">{full}</p>
+      {/* lecteur d'écran : le titre du retour est déjà annoncé par l'encadré de correction */}
+      <p class="sr-only">{sr ? sr.join('\n') : full}</p>
       <div aria-hidden="true">
         {shown.split('\n').map((l, i) => (
           <p key={i}>{l}</p>
@@ -240,7 +241,7 @@ export function BattleScene({ game }: { game: Game }) {
           </div>
         </div>
       </div>
-      <Dialog messages={messages} id={turnKey} />
+      <Dialog messages={messages} id={turnKey} sr={fb ? messages.slice(1) : undefined} />
     </div>
   );
 }

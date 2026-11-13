@@ -46,7 +46,7 @@ export type Outcome = Verdict | 'timeout' | 'oracle';
 /** Effets visuels à jouer après une réponse (l'interface décide comment les animer). */
 export type Fx =
   | 'enemyHit' | 'crit' | 'combo' | 'zero' | 'shieldHit' | 'vanish' | 'abanico' | 'heal' | 'enemyDown'
-  | 'playerHit' | 'blocked' | 'reflect' | 'mask' | 'canceled' | 'steal' | 'stealItem' | 'poison' | 'playerDown'
+  | 'alma' | 'playerHit' | 'blocked' | 'reflect' | 'mask' | 'canceled' | 'steal' | 'stealItem' | 'poison' | 'playerDown'
   | 'casi' | 'phase' | 'revive' | 'playerHeal';
 
 export interface Feedback {
@@ -122,6 +122,15 @@ export interface RestState {
   result: RoomResult | null;
 }
 
+/** Échauffement de début de partie : les questions ratées aux parties précédentes (« almas pendientes »). */
+export interface WarmupState {
+  ids: string[];
+  i: number;
+  quiz: QuizState;
+  /** Âmes libérées pendant l'échauffement (chacune donne +1 PV). */
+  freed: number;
+}
+
 export interface ErrorEntry {
   id: string;
   prompt: string;
@@ -135,7 +144,7 @@ export interface Offer {
   sold?: boolean;
 }
 
-export type Screen = 'map' | 'combat' | 'reward' | 'shop' | 'rest' | 'event' | 'chest' | 'over';
+export type Screen = 'warmup' | 'map' | 'combat' | 'reward' | 'shop' | 'rest' | 'event' | 'chest' | 'over';
 
 export interface RunState {
   v: 3;
@@ -169,11 +178,15 @@ export interface RunState {
   stats: {
     ok: number; ko: number; casi: number; won: number; written: number; turns: number; rooms: number; startedAt: number; endedAt: number;
     maxStreak: number; perfectFights: number; powersUsed: number;
+    /** Questions ratées (dans cette partie ou une précédente) puis réussies : « almas liberadas ». */
+    freed?: number;
   };
   seen: Record<string, number>;
   /** Dernières questions posées (les plus récentes à la fin), pour éviter les enchaînements trop proches. */
   recent?: string[];
+  /** Questions ratées à reposer (« almas pendientes ») : celles des parties précédentes, puis celles de cette partie. */
   retry: string[];
+  warmup?: WarmupState | null;
   errors: ErrorEntry[];
   metEnemies: string[];
   seenEvents: string[];
@@ -210,6 +223,11 @@ export const ASCENSION_RULES: string[] = [
 export const RECENT_WINDOW = 6;
 /** Une question ratée ne revient pas avant ce nombre de questions. */
 export const RETRY_GAP = 6;
+/** Chance, à chaque question de combat, de reposer une question ratée en attente. */
+export const RETRY_CHANCE = 0.35;
+/** Échauffement : nombre de questions au plus, et nombre de questions ratées reprises d'une partie à l'autre. */
+export const WARMUP_MAX = 4;
+export const CARRY_MAX = 12;
 
 const RARITY_WEIGHT: Record<Rarity, number> = { comun: 60, rara: 30, legendaria: 10 };
 const BOSS_RARITY_WEIGHT: Record<Rarity, number> = { comun: 15, rara: 55, legendaria: 30 };
@@ -279,7 +297,7 @@ export class Game {
   }
 
   /** Démarre une nouvelle partie à partir d'une graine. */
-  static newRun(content: Content, settings: Settings, seed: string, now = Date.now(), opts: { character?: string; ascension?: number } = {}): Game {
+  static newRun(content: Content, settings: Settings, seed: string, now = Date.now(), opts: { character?: string; ascension?: number; pending?: string[] } = {}): Game {
     const rng = new Rng(seed);
     const p = content.sequence.player;
     const chars = content.sequence.characters;
@@ -305,8 +323,78 @@ export class Game {
       combat: null, offer: null, offerKind: null, event: null, chest: null, rest: null, result: null,
     };
     const g = new Game(content, settings, state);
+    g.startWarmup(opts.pending ?? []);
     g.commit();
     return g;
+  }
+
+  /** Applique de nouveaux réglages en cours de partie (chrono coupé ou rallumé depuis les Options). */
+  updateSettings(settings: Settings) {
+    this.settings = settings;
+    const c = this.state.combat;
+    // chrono coupé : la question en cours n'est plus minutée ; rallumé, il reprend à la question suivante
+    if (c && !settings.chrono) c.timeMax = c.timeLeft = 0;
+    this.commit();
+  }
+
+  /* ---------- almas pendientes : échauffement ---------- */
+
+  /** Nombre de questions ratées qui attendent d'être reposées. */
+  get pendingCount(): number {
+    return this.state.retry.length;
+  }
+
+  private quizFor(q: Question): QuizState {
+    return { q: this.makeAsked(q, this.chooseMode(q, this.writeChance())), fb: null };
+  }
+
+  /** Les questions ratées aux parties précédentes : les premières en échauffement, les suivantes pendant la partie. */
+  private startWarmup(pending: string[]) {
+    const s = this.state;
+    const themes = this.activeThemes();
+    const ids = [...new Set(pending)].filter(id => {
+      const q = this.qById.get(id);
+      return !!q && this.isUsable(q) && themes.includes(q.theme);
+    }).slice(0, CARRY_MAX);
+    const warm = ids.slice(0, WARMUP_MAX);
+    s.retry = ids.slice(WARMUP_MAX);
+    if (!warm.length) return;
+    s.warmup = { ids: warm, i: 0, quiz: this.quizFor(this.qById.get(warm[0])!), freed: 0 };
+    s.screen = 'warmup';
+  }
+
+  warmupAnswer(value: string) {
+    const s = this.state, w = s.warmup;
+    if (s.screen !== 'warmup' || !w) return;
+    const v = this.answerQuiz(w.quiz, value);
+    if (v === 'ok') {
+      w.freed++;
+      s.maxHp++;
+      s.hp++;
+    }
+    if (v) this.commit();
+  }
+
+  /** Question suivante de l'échauffement, ou départ sur la carte. */
+  warmupNext() {
+    const s = this.state, w = s.warmup;
+    if (s.screen !== 'warmup' || !w || !w.quiz.fb) return;
+    if (w.i + 1 >= w.ids.length) s.screen = 'map';
+    else {
+      w.i++;
+      w.quiz = this.quizFor(this.qById.get(w.ids[w.i])!);
+    }
+    this.commit();
+  }
+
+  /** Passe l'échauffement : les questions restantes reviendront pendant la partie. */
+  warmupSkip() {
+    const s = this.state, w = s.warmup;
+    if (s.screen !== 'warmup' || !w) return;
+    const rest = w.ids.slice(w.quiz.fb ? w.i + 1 : w.i).filter(id => !s.retry.includes(id));
+    s.retry = [...rest, ...s.retry];
+    s.screen = 'map';
+    this.commit();
   }
 
   /* ---------- abonnements ---------- */
@@ -404,7 +492,7 @@ export class Game {
     if (c.fog) return 'brouillard';
     if (this.enemy?.modifier === 'niebla' && (it.effect === 'translate' || it.effect === 'hint')) return 'niebla';
     switch (it.effect) {
-      case 'translate': return !q.translation ? 'pas de traduction' : c.used.translate ? 'déjà utilisé' : null;
+      case 'translate': return !this.translationText() ? 'rien à traduire' : c.used.translate ? 'déjà utilisé' : null;
       case 'hint': return c.used.hint ? 'déjà utilisé' : null;
       case 'scissors': return c.used.scissors ? 'déjà utilisé' : c.q.mode === 'tf' ? 'inutile ici' : null;
       case 'time': return c.timeMax ? null : 'pas de chrono';
@@ -586,15 +674,22 @@ export class Game {
     return this.rng.chance(writeP) ? 'write' : 'qcm';
   }
 
-  /** Enregistre le résultat d'une réponse (statistiques, carnet, revanche). */
-  private record(q: Question, v: Verdict, given: string | null, mode: Mode) {
+  /**
+   * Enregistre le résultat d'une réponse (statistiques, carnet, almas pendientes).
+   * Renvoie true si une « alma » est libérée : une question déjà ratée, maintenant réussie.
+   */
+  private record(q: Question, v: Verdict, given: string | null, mode: Mode): boolean {
     const s = this.state;
     this.onRecord?.(q, v);
     if (v !== 'ok' && s.screen === 'combat' && s.combat) s.combat.errors++;
     if (v === 'ok') {
       s.stats.ok++;
       if (mode === 'write') s.stats.written++;
+      const w = s.screen === 'warmup' ? s.warmup : null;
+      const freed = s.retry.includes(q.id) || !!w?.ids.includes(q.id);
       s.retry = s.retry.filter(id => id !== q.id);
+      if (freed) s.stats.freed = (s.stats.freed ?? 0) + 1;
+      return freed;
     } else if (v === 'casi') {
       s.stats.casi++;
       this.logError(q, given);
@@ -603,6 +698,7 @@ export class Game {
       this.logError(q, given);
       if (!s.retry.includes(q.id)) s.retry.push(q.id);
     }
+    return false;
   }
 
   private checkOptions(q: Question) {
@@ -700,8 +796,9 @@ export class Game {
   private targetLevel(): 1 | 2 | 3 | 4 {
     const e = this.enemy!, ph = this.phase;
     if (ph?.levels?.length) return levelNum(this.rng.pick(ph.levels));
-    if (e.kind === 'final') return this.rng.chance(0.4) ? 4 : 3;
+    if (e.kind === 'final') return this.rng.chance(0.6) ? 4 : 3;
     const L = this.act.level;
+    if (e.kind === 'jefe' && L >= 2) return this.rng.chance(0.25) ? 4 : L;
     if (e.kind !== 'normal') return L;
     return L === 1 || this.rng.chance(0.65) ? L : ((L - 1) as 1 | 2);
   }
@@ -732,17 +829,22 @@ export class Game {
     const s = this.state, c = s.combat!, e = this.enemy!;
     let q: Question | undefined;
     let again = false;
-    if (!forceNew && s.retry.length > 1 && e.kind !== 'final' && !c.juicio && this.rng.chance(0.3)) {
-      // revanche : une question ratée, mais pas trop tôt et pas proche des dernières posées
-      const recent = s.recent ?? [];
-      const id = s.retry.find(r => !recent.slice(-RETRY_GAP).includes(r) && !this.clashes(r));
+    if (!forceNew && s.retry.length && e.kind !== 'final' && !c.juicio && this.rng.chance(RETRY_CHANCE)) {
+      // alma pendiente : une question ratée, posable maintenant, pas trop tôt et pas proche des dernières posées.
+      // Elle reste en attente tant qu'elle n'est pas réussie.
+      const recent = (s.recent ?? []).slice(-RETRY_GAP);
+      const listen = c.intent.kind === 'listen' && !c.canceled;
+      const writeOnly = this.writableOnly();
+      const id = s.retry.find(r => {
+        const x = this.qById.get(r);
+        return !!x && this.isUsable(x) && !recent.includes(r) && !this.clashes(r) && (!writeOnly || this.canWrite(x)) && (!listen || x.type === 'ecoute');
+      });
       if (id) {
-        s.retry = s.retry.filter(r => r !== id);
         q = this.qById.get(id);
-        again = !!q;
+        again = true;
       }
     }
-    if (!q || !this.isUsable(q) || (this.writableOnly() && !this.canWrite(q)) || (c.intent.kind === 'listen' && q.type !== 'ecoute')) {
+    if (!q) {
       q = this.pick(this.combatPickOpts(easier));
       again = false;
     }
@@ -812,7 +914,7 @@ export class Game {
         s.streak++;
         s.stats.maxStreak = Math.max(s.stats.maxStreak, s.streak);
         c.rowCorrect++;
-        if (how !== 'oracle') this.record(q, 'ok', value, c.q.mode);
+        const freed = how !== 'oracle' && this.record(q, 'ok', value, c.q.mode);
         if (written) {
           dmg += 1 + this.relicValue('writeBonus');
           if (this.relicCount('allWrite')) dmg += this.relicValue('allWrite', 2);
@@ -842,6 +944,13 @@ export class Game {
           s.hp += h;
           fb.fx.push('playerHeal');
           fb.lines.push(`${heal.name} : +${h} PV.`);
+        }
+        if (freed) {
+          const h = Math.min(s.maxHp - s.hp, 1);
+          s.hp += h;
+          if (h && !fb.fx.includes('playerHeal')) fb.fx.push('playerHeal');
+          fb.fx.push('alma');
+          fb.lines.push(`Alma liberada : tu avais raté cette question, tu la réussis.${h ? ' +1 PV.' : ''}`);
         }
         if (this.relicCount('luckyCards') && how !== 'oracle') {
           s.luckyCount++;
@@ -920,7 +1029,7 @@ export class Game {
         } else c.attackBonus = Math.min(4, c.attackBonus + 1);
       }
     }
-    if (s.poison > 0 && s.hp > 0) {
+    if (s.poison > 0 && s.hp > 0 && c.hp > 0) {
       s.hp = Math.max(0, s.hp - 1);
       s.poison--;
       fb.dmgToPlayer += 1;
@@ -1067,8 +1176,10 @@ export class Game {
 
   /** Objets encore obtenables d'une catégorie. */
   available(kind: Item['kind']): string[] {
+    // sans chrono, les objets qui ne servent qu'au chrono ne sont plus proposés
+    const useless = (i: Item) => !this.settings.chrono && (i.effect === 'time' || i.effect === 'slowTime');
     return this.content.items
-      .filter(i => i.kind === kind && (kind === 'aide' || (this.state.relics[i.id] ?? 0) < (i.max ?? 1)))
+      .filter(i => i.kind === kind && !useless(i) && (kind === 'aide' || (this.state.relics[i.id] ?? 0) < (i.max ?? 1)))
       .map(i => i.id);
   }
 
@@ -1417,10 +1528,20 @@ export class Game {
     return true;
   }
 
+  /** Texte du Traductor : la traduction de l'énoncé ; s'il n'y a rien à traduire, la première lettre de la réponse. */
+  translationText(): string {
+    const q = this.question;
+    if (!q) return '';
+    if (q.translation) return q.translation;
+    return isChoice(q) ? autoHint(q.answer) : '';
+  }
+
   /** Texte de l'antisèche : la règle, sauf si elle dévoile la réponse. */
   hintText(): string {
     const q = this.question;
     if (!q) return '';
+    // vrai / faux : l'explication commence par la réponse ; l'antisèche aide seulement à comprendre la phrase
+    if (q.type === 'vrai-faux') return q.translation ? `En français : ${q.translation}` : 'Relis chaque mot : un seul détail peut rendre la phrase fausse.';
     const ans = answerText(q, this.content.scenes);
     const leaks = isChoice(q) && normalize(q.explanation).includes(normalize(ans));
     const hintId = this.idByEffect('hint');

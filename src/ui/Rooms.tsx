@@ -285,3 +285,62 @@ export function ChestScreen({ game }: { game: Game }) {
     </section>
   );
 }
+
+/* ======================= Échauffement : almas pendientes ======================= */
+
+/** Début de partie : les questions ratées aux parties précédentes. Chaque âme libérée donne +1 PV. */
+export function WarmupScreen({ game }: { game: Game }) {
+  const s = game.state, w = s.warmup!;
+  const q = game.getQuestion(w.quiz.q.id);
+  const fb = w.quiz.fb;
+  const last = w.i + 1 >= w.ids.length;
+  const ref = useRef<HTMLButtonElement>(null);
+  useEffect(() => {
+    if (fb) {
+      ref.current?.focus({ preventScroll: true });
+      ref.current?.scrollIntoView({ block: 'nearest' });
+    }
+  }, [w.i, !!fb]);
+  if (!q) return null;
+  return (
+    <section class="screen calentamiento" aria-label="Échauffement">
+      <div class="escena">
+        <div class="almas-dibujo" aria-hidden="true">
+          {w.ids.map((id, i) => (
+            <span key={id} class={i < w.i || (i === w.i && fb) ? (i === w.i ? (fb!.verdict === 'ok' ? 'libre' : 'queda') : 'pasada') : i === w.i ? 'actual' : ''}>
+              👻
+            </span>
+          ))}
+        </div>
+        <div class="relato-box">
+          <span class="lbl">Avant de partir</span>
+          <h2>Tus almas pendientes</h2>
+          <p>
+            {w.ids.length > 1 ? `Ces ${w.ids.length} questions t'ont échappé la dernière fois.` : "Cette question t'a échappé la dernière fois."} Chaque bonne réponse libère une âme et te donne{' '}
+            <b>+1 PV</b> pour cette partie. Pas de chrono, pas de risque.
+          </p>
+          <p class="muted" role="status">
+            Question {w.i + 1} sur {w.ids.length} · {w.freed} âme{w.freed > 1 ? 's' : ''} libérée{w.freed > 1 ? 's' : ''} · {s.hp} PV
+          </p>
+        </div>
+      </div>
+      <QuizView q={q} asked={w.quiz.q} fb={fb} onAnswer={v => game.warmupAnswer(v)} scenes={game.content.scenes} voices={game.content.sequence.voices}>
+        {fb && <p class="alerta">{fb.verdict === 'ok' ? '👻 Alma liberada : +1 PV.' : fb.verdict === 'casi' ? "Presque : il manque un accent. L'âme reviendra." : "L'âme reste avec toi : elle reviendra pendant la partie."}</p>}
+        {fb && (
+          <div>
+            <button class="btn" ref={ref} onClick={() => game.warmupNext()}>
+              {last ? 'Commencer le chemin' : 'Âme suivante'}
+            </button>
+          </div>
+        )}
+      </QuizView>
+      {!fb && (
+        <p>
+          <button class="link" onClick={() => game.warmupSkip()}>
+            Passer l'échauffement (les questions reviendront pendant la partie)
+          </button>
+        </p>
+      )}
+    </section>
+  );
+}

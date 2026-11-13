@@ -19,6 +19,12 @@ describe('équilibrage (simulation)', () => {
     expect(w).toBeGreaterThan(0.3);
     expect(w).toBeLessThan(0.9);
   });
+  it('un élève fragile (60 %) dépasse le premier acte dans au moins deux parties sur trois', () => {
+    const rs = run(0.6);
+    expect(rs.filter(r => r.win || r.act >= 1).length / N).toBeGreaterThan(0.66);
+    // et la partie ne s'éternise pas
+    expect(avg(rs.map(r => r.minutes))).toBeLessThan(21);
+  });
   it('répondre au hasard ne suffit pas pour gagner', () => {
     expect(run(0.4).filter(r => r.win).length).toBe(0);
   });

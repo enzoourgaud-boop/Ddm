@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { codeDataFromRun, decodeCode, encodeCode } from '../src/engine/code';
 import { DEFAULT_SETTINGS, Game } from '../src/engine/game';
-import { ACHIEVEMENTS, allCards, applyRun, characterUnlocked, emptyMeta, type Leitner, leitnerUpdate, leitnerWeight, notionStats } from '../src/engine/meta';
+import { ACHIEVEMENTS, allCards, applyRun, characterUnlocked, emptyMeta, type Leitner, leitnerUpdate, leitnerWeight, notionStats, pendingAlmas } from '../src/engine/meta';
 import { canonicalValue, wrongValue } from '../src/engine/questions';
 import { content } from './helpers';
 
@@ -34,15 +34,26 @@ function playOut(g: Game, wrongEvery = 0) {
 describe('Leitner', () => {
   it('bonne réponse = boîte suivante, erreur = boîte 1, « casi » = on reste', () => {
     let l: Leitner = {};
-    l = leitnerUpdate(l, 'a', 'ok');
-    expect(l.a).toEqual([2, 1, 0]);
+    l = leitnerUpdate(l, 'a', 'ok', 120000);
+    expect(l.a).toEqual([2, 1, 0, 2]);
     l = leitnerUpdate(l, 'a', 'ok');
     l = leitnerUpdate(l, 'a', 'casi');
     expect(l.a[0]).toBe(3);
-    l = leitnerUpdate(l, 'a', 'ko');
-    expect(l.a).toEqual([1, 4, 2]);
+    l = leitnerUpdate(l, 'a', 'ko', 600000);
+    expect(l.a).toEqual([1, 4, 2, 10]);
     for (let i = 0; i < 10; i++) l = leitnerUpdate(l, 'b', 'ok');
     expect(l.b[0]).toBe(5);
+  });
+  it('almas pendientes : les questions ratées et pas encore réussies, les plus récentes d’abord', () => {
+    let l: Leitner = { vieille: [1, 2, 1] }; // sauvegarde d'avant la version 1.1 : pas de date
+    l = leitnerUpdate(l, 'a', 'ko', 60000 * 10);
+    l = leitnerUpdate(l, 'b', 'ko', 60000 * 30);
+    l = leitnerUpdate(l, 'c', 'ko', 60000 * 20);
+    l = leitnerUpdate(l, 'reussie', 'ko', 60000 * 40);
+    l = leitnerUpdate(l, 'reussie', 'ok', 60000 * 41);
+    l = leitnerUpdate(l, 'accent', 'casi', 60000 * 50); // un accent oublié reste en boîte 1 : à revoir aussi
+    l = leitnerUpdate(l, 'jamais-ratee', 'ok', 60000 * 60);
+    expect(pendingAlmas(l)).toEqual(['accent', 'b', 'c', 'a', 'vieille']);
   });
   it('une question ratée pèse 6 fois plus qu’une question maîtrisée', () => {
     const l: Leitner = { rate: [1, 3, 2], ok: [5, 6, 0] };

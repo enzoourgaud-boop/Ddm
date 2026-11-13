@@ -6,15 +6,18 @@ import { BattleScene } from './battle/BattleScene';
 import { Hud, Powers } from './components';
 import { play } from './sfx';
 
-function Crono({ game }: { game: Game }) {
+function Crono({ game, paused }: { game: Game; paused: boolean }) {
   const [, setTick] = useState(0);
+  const pausedRef = useRef(paused);
+  pausedRef.current = paused;
   useEffect(() => {
     let last = performance.now();
     const t = setInterval(() => {
       const now = performance.now();
       const dt = Math.min(now - last, 1000);
       last = now;
-      if (document.hidden) return;
+      // le temps ne s'écoule ni dans un onglet caché ni quand le panneau d'options est ouvert
+      if (document.hidden || pausedRef.current) return;
       if (!game.tick(dt)) setTick(x => x + 1);
     }, 200);
     return () => clearInterval(t);
@@ -23,8 +26,8 @@ function Crono({ game }: { game: Game }) {
   if (!c || !c.timeMax) return null;
   const s = Math.ceil(c.timeLeft / 1000);
   return (
-    <div class={`crono ${c.timeLeft <= 5000 ? 'urge' : ''}`} role="timer" aria-label={`Temps restant : ${s} secondes`}>
-      <span aria-hidden="true">{c.intent.kind === 'rush' && !c.canceled ? '⏱️💨' : '⏱️'}</span>
+    <div class={`crono ${c.timeLeft <= 5000 ? 'urge' : ''} ${paused ? 'pausa' : ''}`} role="timer" aria-label={paused ? 'Chrono en pause' : `Temps restant : ${s} secondes`}>
+      <span aria-hidden="true">{paused ? '⏸️' : c.intent.kind === 'rush' && !c.canceled ? '⏱️💨' : '⏱️'}</span>
       <div class="bar" aria-hidden="true">
         <i style={{ width: `${(100 * c.timeLeft) / c.timeMax}%` }} />
       </div>
@@ -33,7 +36,7 @@ function Crono({ game }: { game: Game }) {
   );
 }
 
-export function Combat({ game }: { game: Game }) {
+export function Combat({ game, paused = false }: { game: Game; paused?: boolean }) {
   const s = game.state, c = s.combat!, q = game.question!, e = game.enemy!;
   const fb = c.fb;
   const contRef = useRef<HTMLButtonElement>(null);
@@ -41,7 +44,11 @@ export function Combat({ game }: { game: Game }) {
   const dead = c.hp <= 0;
 
   useEffect(() => {
-    if (fb) contRef.current?.focus({ preventScroll: true });
+    if (fb) {
+      contRef.current?.focus({ preventScroll: true });
+      // le bouton « Continuer » doit être visible sans chercher ; la scène, elle, reste collée à l'écran
+      contRef.current?.scrollIntoView({ block: 'nearest' });
+    } else window.scrollTo({ top: 0 });
   }, [qKey, !!fb]);
   // sons du combat
   useEffect(() => {
@@ -61,13 +68,19 @@ export function Combat({ game }: { game: Game }) {
     if (fx.includes('phase')) play('phase');
   }, [qKey, !!fb]);
 
+  // questions « hautes » (plateaux, image à lire) : sur petit écran, la boîte de dialogue leur laisse la place
+  const withScene = q.type === 'qcm' && !!q.scene;
+  const tall = withScene || c.q.mode === 'place' || c.q.mode === 'order' || c.q.mode === 'match';
   const theme = game.content.sequence.themes.find(t => t.id === q.theme);
   const contLabel = s.hp <= 0 ? 'Voir le bilan' : dead ? `¡Victoria! ${e.name} est vaincu${e.name.startsWith('La ') ? 'e' : ''}` : 'Continuer';
 
   return (
-    <section class="screen combate" aria-label="Combat">
-      <Hud game={game} noHp />
-      <BattleScene game={game} />
+    <section class="screen combate" aria-label="Combat" data-modo={c.q.mode} data-amplio={tall ? '1' : undefined} data-escena={withScene ? '1' : undefined}>
+      <div class="lado-escena">
+        <Hud game={game} noHp />
+        <BattleScene game={game} />
+        <Powers game={game} inCombat={true} compact />
+      </div>
       <div class="qa" data-qid={q.id} data-mode={c.q.mode}>
         <div class="tipo">
           <span class="tag" style={{ '--k': theme?.color }}>
@@ -76,14 +89,18 @@ export function Combat({ game }: { game: Game }) {
           <span class="lbl">
             {q.label ?? ''}
             {c.q.mode === 'write' ? " · à l'écrit" : ''}
-            {c.q.again ? ' · revanche' : ''}
           </span>
+          {c.q.again && (
+            <span class="alma-chip" title="Tu avais raté cette question. Réussis-la pour libérer cette âme : +1 PV.">
+              <span aria-hidden="true">👻</span> Alma pendiente
+            </span>
+          )}
         </div>
-        {!fb && <Crono game={game} />}
+        {!fb && <Crono game={game} paused={paused} />}
         <Prompt q={q} revealed={!!fb} />
         {c.used.translate && (
           <div class="pista">
-            <b>Traductor</b> {q.translation}
+            <b>Traductor</b> {game.translationText()}
           </div>
         )}
         {c.used.hint && (
@@ -110,7 +127,6 @@ export function Combat({ game }: { game: Game }) {
         {fb && (
           <div class={`fb ${fb.outcome}`} role="status">
             <h3>{fb.title}</h3>
-            {c.q.mode === 'write' && fb.outcome !== 'ok' && fb.given && <p class="muted">Tu as écrit « {fb.given} ».</p>}
             <Solution q={q} asked={c.q} verdict={fb.outcome} given={fb.given} scenes={game.content.scenes} />
             {fb.outcome !== 'ok' && fb.outcome !== 'oracle' && <p>{q.explanation}</p>}
             {fb.alert && <p class="alerta">{fb.alert}</p>}
@@ -122,7 +138,6 @@ export function Combat({ game }: { game: Game }) {
           </div>
         )}
       </div>
-      <Powers game={game} inCombat={true} />
     </section>
   );
 }

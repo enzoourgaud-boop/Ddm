@@ -40,7 +40,9 @@ export function voicesReady(): Promise<void> {
 }
 
 export function pickVoice(prefs: string[]): SpeechSynthesisVoice | null {
-  const vs = cachedVoices.filter(v => v.lang && v.lang.toLowerCase().startsWith('es'));
+  // uniquement les voix installées sur l'appareil : une voix « en ligne » enverrait le texte à un service extérieur
+  // et resterait muette sans connexion (on bascule alors sur la lecture éclair)
+  const vs = cachedVoices.filter(v => v.lang && v.lang.toLowerCase().startsWith('es') && v.localService !== false);
   for (const p of prefs) {
     const exact = vs.find(v => v.lang.toLowerCase().replace('_', '-') === p.toLowerCase());
     if (exact) return exact;
