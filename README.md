@@ -6,6 +6,8 @@ Un jeu vidéo pour réviser l'espagnol en 5e (niveau A1-A2) sur la séquence **D
 - Il n'y a **ni serveur, ni compte élève, ni publicité**. Aucune donnée ne quitte l'appareil.
 - Une fois chargé, il fonctionne **sans connexion** et peut s'installer comme une application.
 
+> **Version 2 en préparation.** Le bilan de la version actuelle est dans [`docs/AUDIT.md`](docs/AUDIT.md), la proposition de version 2 dans [`docs/V2.md`](docs/V2.md), et les points à valider dans [`docs/A_VERIFIER.md`](docs/A_VERIFIER.md) (section 9). Tant que la proposition n'est pas validée, le jeu en ligne reste la version décrite ci-dessous.
+
 ---
 
 ## Sommaire
@@ -148,7 +150,7 @@ Ouvre un fichier `.json` sur github.com, clique sur le crayon ✏️, modifie, p
 
 **Vérifier la banque** : la commande `npm run valider` (partie 8) contrôle tout : champs manquants, doublons, réponse présente parmi les distracteurs, références inconnues. GitHub la lance automatiquement à chaque envoi.
 
-Les informations culturelles qui ne venaient pas des documents de cours sont listées dans [`A_VERIFIER.md`](A_VERIFIER.md).
+Les informations culturelles qui ne venaient pas des documents de cours sont listées dans [`docs/A_VERIFIER.md`](docs/A_VERIFIER.md).
 
 ---
 
