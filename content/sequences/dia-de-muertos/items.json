@@ -7,7 +7,7 @@
     "emoji": "📖",
     "price": 4,
     "effect": "translate",
-    "description": "Traduit la question en français.",
+    "description": "Traduit la question en français. S'il n'y a rien à traduire, donne la première lettre de la réponse.",
     "upgrade": "Traductor+ : affiche aussi l'antisèche.",
     "card": 1,
     "phrase": "¿Qué quiere decir?"

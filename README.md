@@ -6,6 +6,8 @@ Un jeu vidéo pour réviser l'espagnol en 5e (niveau A1-A2) sur la séquence **D
 - Il n'y a **ni serveur, ni compte élève, ni publicité**. Aucune donnée ne quitte l'appareil.
 - Une fois chargé, il fonctionne **sans connexion** et peut s'installer comme une application.
 
+> **Version 2 en préparation.** L'étape 2 (version 1.1 : combat visible sans défiler, bugs corrigés, retour garanti des erreurs) est sur la branche `etape-2-corrections`, captures dans `docs/etape-2/`. Le bilan de la version actuelle est dans [`docs/AUDIT.md`](docs/AUDIT.md), la proposition de version 2 dans [`docs/V2.md`](docs/V2.md), et les points à valider dans [`docs/A_VERIFIER.md`](docs/A_VERIFIER.md) (section 9). Tant que la proposition n'est pas validée, le jeu en ligne reste la version décrite ci-dessous.
+
 ---
 
 ## Sommaire
@@ -72,7 +74,8 @@ Tu peux donner cette adresse aux élèves, ou en faire un QR code. Le plus simpl
 - **Code de classe** : donne aux élèves le code de 6 caractères de l'espace professeur (ou fais-leur scanner le QR code projeté). Ils le tapent dans « Code de classe » sur l'écran d'accueil. Tes réglages s'appliquent : thèmes, types de questions, chrono, etc.
 - **Défi de classe** : avec une **graine** (ex. `VELA-12`), toute la classe joue la même carte. C'est pratique pour comparer ou corriger ensemble.
 - **Fin de partie** : l'élève obtient un **code** (ex. `HC8BA-351GA-HMQ00-W9S0`) et un QR code qui résument son résultat et les notions à revoir. Il te le montre ou le recopie, et tu le décodes dans l'espace professeur.
-- **Révision automatique** : les questions ratées reviennent plus souvent dans les parties suivantes (système de Leitner). L'écran **« Mon carnet »** montre à chaque élève ses notions fragiles.
+- **Les erreurs reviennent (« almas pendientes »)** : une question ratée devient une petite âme qui suit l'élève. Elle revient plus tard dans la même partie, puis **au début de la partie suivante** dans un court échauffement (4 questions au plus, sans chrono). Chaque âme libérée (question réussie) donne +1 PV. Le compteur 👻 en haut de l'écran indique combien attendent. L'écran **« Mon carnet »** montre à chaque élève ses notions fragiles.
+- **Chrono** : il peut être coupé à tout moment depuis les Options ⚙️, même au milieu d'un combat, et il se met en pause quand le panneau d'Options est ouvert.
 - **Progression** : il y a 3 personnages à débloquer, 42 cartes de lotería à collectionner, 19 succès, et un « Nivel de Calavera » qui rend le jeu plus difficile après chaque victoire.
 - **Sans connexion** : une fois le jeu ouvert avec Internet, il fonctionne hors ligne.
   - Sur ordinateur (Chrome ou Edge), il peut s'**installer** : icône ⊕ dans la barre d'adresse.
@@ -148,7 +151,7 @@ Ouvre un fichier `.json` sur github.com, clique sur le crayon ✏️, modifie, p
 
 **Vérifier la banque** : la commande `npm run valider` (partie 8) contrôle tout : champs manquants, doublons, réponse présente parmi les distracteurs, références inconnues. GitHub la lance automatiquement à chaque envoi.
 
-Les informations culturelles qui ne venaient pas des documents de cours sont listées dans [`A_VERIFIER.md`](A_VERIFIER.md).
+Les informations culturelles qui ne venaient pas des documents de cours sont listées dans [`docs/A_VERIFIER.md`](docs/A_VERIFIER.md).
 
 ---
 

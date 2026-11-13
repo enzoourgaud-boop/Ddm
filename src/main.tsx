@@ -13,6 +13,7 @@ import './styles/boards.css';
 import './styles/menu.css';
 import './styles/teacher.css';
 import './styles/a11y.css';
+import './styles/combat.css';
 import { applyPrefs, loadPrefs } from './prefs';
 import { registerOffline } from './pwa';
 import { App } from './ui/App';

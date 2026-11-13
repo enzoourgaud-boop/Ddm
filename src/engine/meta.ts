@@ -8,15 +8,28 @@ import type { Content, Question } from './schema';
 
 /* ======================= Leitner ======================= */
 
-/** Boîte de Leitner d'une question : [boîte 1-5, nombre de fois vue, nombre d'erreurs]. */
-export type LeitnerEntry = [box: number, seen: number, wrong: number];
+/**
+ * Boîte de Leitner d'une question : [boîte 1-5, nombre de fois vue, nombre d'erreurs, dernière réponse].
+ * La dernière réponse est une date en minutes (absente des sauvegardes d'avant la version 1.1).
+ */
+export type LeitnerEntry = [box: number, seen: number, wrong: number, last?: number];
 export type Leitner = Record<string, LeitnerEntry>;
 
 /** Met à jour une boîte : bonne réponse = boîte suivante, erreur = retour en boîte 1, « casi » = reste. */
-export function leitnerUpdate(l: Leitner, id: string, v: Verdict): Leitner {
+export function leitnerUpdate(l: Leitner, id: string, v: Verdict, now = Date.now()): Leitner {
   const [box, seen, wrong] = l[id] ?? [0, 0, 0];
   const nb = v === 'ok' ? Math.min(5, Math.max(1, box) + 1) : v === 'ko' ? 1 : Math.max(1, box);
-  return { ...l, [id]: [nb, seen + 1, wrong + (v === 'ok' ? 0 : 1)] };
+  return { ...l, [id]: [nb, seen + 1, wrong + (v === 'ok' ? 0 : 1), Math.floor(now / 60000)] };
+}
+
+/**
+ * « Almas pendientes » : les questions ratées et pas encore réussies depuis (boîte 1, au moins une erreur),
+ * les plus récentes d'abord. Elles sont reposées au début de la partie suivante.
+ */
+export function pendingAlmas(l: Leitner): string[] {
+  return Object.keys(l)
+    .filter(id => l[id][0] === 1 && l[id][2] > 0)
+    .sort((a, b) => (l[b][3] ?? 0) - (l[a][3] ?? 0));
 }
 
 /**

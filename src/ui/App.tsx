@@ -5,14 +5,14 @@ import { emptyOverlay, teacher } from '../content/teacher';
 import { decodeClass, parseClassLink } from '../engine/classCode';
 import type { Content } from '../engine/schema';
 import { DEFAULT_SETTINGS, Game, type RunState, type Settings } from '../engine/game';
-import { applyRun, type Leitner, leitnerUpdate, leitnerWeight, type Meta, type Unlocks } from '../engine/meta';
+import { applyRun, type Leitner, leitnerUpdate, leitnerWeight, type Meta, pendingAlmas, type Unlocks } from '../engine/meta';
 import { randomSeed } from '../engine/rng';
 import { profiles, type Profile } from '../profiles';
 import { storage } from '../storage';
 import { Combat } from './Combat';
 import { PapelPicado, useGame } from './components';
 import { AchievementsScreen, CarnetScreen, CollectionScreen, Over, ProfileScreen, Title } from './Menu';
-import { ChestScreen, EventScreen, MapScreen, RestScreen } from './Rooms';
+import { ChestScreen, EventScreen, MapScreen, RestScreen, WarmupScreen } from './Rooms';
 import { Reward, Shop } from './screens';
 import { Transition } from './Transition';
 import { OptionsPanel } from './Options';
@@ -108,6 +108,13 @@ function Main({ content, fromPack, reload }: { content: Content; fromPack: boole
   };
   const initialSeed = useMemo(() => urlSeed() || fromLink?.seed || classe?.seed || '', []);
   useGame(game);
+  const gameRef = useRef<Game | null>(null);
+  gameRef.current = game;
+  /** Questions ratées qui attendent le joueur (« almas pendientes »), limitées à celles encore dans la banque. */
+  const pending = () => {
+    const ok = new Set(content.questions.filter(q => !q.disabled).map(q => q.id));
+    return pendingAlmas(leitner.current).filter(id => ok.has(id));
+  };
 
   useEffect(() => storage.onFailure(() => setPersistent(false)) as () => void, []);
 
@@ -156,6 +163,11 @@ function Main({ content, fromPack, reload }: { content: Content; fromPack: boole
 
   const screen = game?.state.screen ?? menu;
   const room = game ? `${game.state.act}-${game.state.node}` : '';
+  // l'écran de combat a sa propre mise en page (scène toujours visible, guirlande réduite)
+  useEffect(() => {
+    document.documentElement.classList.toggle('en-combate', screen === 'combat');
+    return () => document.documentElement.classList.remove('en-combate');
+  }, [screen]);
   useEffect(() => {
     window.scrollTo({ top: 0 });
     // clavier et lecteur d'écran : le focus va au titre du nouvel écran (si rien d'autre ne l'a pris)
@@ -203,6 +215,8 @@ function Main({ content, fromPack, reload }: { content: Content; fromPack: boole
   const setSettings = (s: Settings) => {
     setSettingsState(s);
     storage.set('settings', s);
+    // la partie en cours suit les réglages tout de suite (couper le chrono au milieu d'un combat, par exemple)
+    gameRef.current?.updateSettings(s);
   };
   /** Code de classe saisi par l'élève. Renvoie un message d'erreur, ou null. */
   const applyClassCode = (raw: string): string | null => {
@@ -222,7 +236,7 @@ function Main({ content, fromPack, reload }: { content: Content; fromPack: boole
   };
   const start = (o: { seed: string; character: string; ascension: number }) => {
     if (!profile) return;
-    const g = attach(Game.newRun(content, settings, o.seed || randomSeed(), Date.now(), { character: o.character, ascension: o.ascension }));
+    const g = attach(Game.newRun(content, settings, o.seed || randomSeed(), Date.now(), { character: o.character, ascension: o.ascension, pending: pending() }));
     profiles.saveRun(profile.id, g.state);
     setSaved(null);
     setUnlocks(null);
@@ -326,6 +340,7 @@ function Main({ content, fromPack, reload }: { content: Content; fromPack: boole
             onResume={resume}
             onNav={m => setMenu(m)}
             initialSeed={initialSeed}
+            pending={pending().length}
             classe={classe}
             onClassCode={applyClassCode}
             onClearClass={clearClass}
@@ -334,8 +349,9 @@ function Main({ content, fromPack, reload }: { content: Content; fromPack: boole
         {!game && menu === 'collection' && <CollectionScreen content={content} meta={meta} onBack={() => setMenu('title')} />}
         {!game && menu === 'achievements' && <AchievementsScreen meta={meta} onBack={() => setMenu('title')} />}
         {!game && menu === 'carnet' && <CarnetScreen content={content} leitner={leitner.current} onBack={() => setMenu('title')} />}
+        {game && game.state.screen === 'warmup' && <WarmupScreen game={game} />}
         {game && game.state.screen === 'map' && <MapScreen game={game} />}
-        {game && game.state.screen === 'combat' && <Combat game={game} />}
+        {game && game.state.screen === 'combat' && <Combat game={game} paused={optionsOpen} />}
         {game && game.state.screen === 'event' && <EventScreen game={game} />}
         {game && game.state.screen === 'rest' && <RestScreen game={game} />}
         {game && game.state.screen === 'chest' && <ChestScreen game={game} />}

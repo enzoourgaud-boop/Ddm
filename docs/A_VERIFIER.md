@@ -1,6 +1,8 @@
 # À vérifier par le professeur
 
 > **Relu par le professeur le 12/11/2026.** Tout est validé (☑), sauf 3 questions désactivées (⛔) : `cult-petalos-guian`, `cult-calaveritas-azucar`, `cult-nombre-ofrenda`. Elles restent dans `cultura.json` avec `"disabled": true` et ne sont plus posées.
+>
+> **13/11/2026 :** la section 9 (points à valider pour la version 2) est validée.
 
 Ce fichier liste tout ce qui, dans le jeu, **ne vient pas directement de tes documents** (`sources/`). Pour chaque point, trois options :
 - **valider** : coche la case ;
@@ -100,3 +102,71 @@ Chaque carte porte une petite phrase d'exemple en espagnol, inventée avec le vo
 
 ### Personnages (`sequence.json`, rubrique `characters`)
 - ☐ Valentina (la ofrendera), Mateo (el trompetista), Luz (la poeta). La description de Luz parle de « vers pour les défunts », une allusion aux *calaveritas literarias* (validée à l'étape 1).
+
+## 9. Version 2 : points à valider avant de coder
+
+La proposition de version 2 ([`V2.md`](V2.md)) s'appuie sur quelques éléments qui **ne sont pas dans tes documents**. Pour chaque ligne : valide (☑), corrige, ou écarte (⛔).
+
+> **Validé par le professeur le 13/11/2026** (« oui à tout »). Les textes espagnols nouveaux restent à relire au fur et à mesure (9.4).
+
+### 9.1 Culture
+
+| ✔ | Élément | Où dans la version 2 | Ce que le jeu affirmerait | Remarque |
+|---|---|---|---|---|
+| ☑ | **La lotería et son meneur** (« el Gritón ») | cartes du jeu, écoute, lotería imprimable | À la lotería, un meneur annonce les cartes à voix haute et les joueurs marquent leur planche. | Jeu traditionnel mexicain. Les cartes de lotería sont déjà validées comme décor ; le rôle du meneur et le mot *gritón* sont nouveaux. |
+| ☑ | **Totopo, un xoloitzcuintle comme compagnon** | toute la partie | Rien : c'est le chien de la famille. | La croyance selon laquelle le xoloitzcuintle guide les âmes vers le Mictlán n'est pas dans tes documents : **le jeu ne le dira pas**, sauf si tu le demandes. Le nom *Totopo* (une chips de tortilla) est choisi pour sa sonorité. |
+| ☑ | **La Catrina vaniteuse**, qui trouve la fête « trop bruyante, trop colorée » | histoire, boss final | Elle méprise la fête populaire, puis peut la rejoindre. | C'est une mise en scène de ton texte P3 (« crítica a la hipocresía de las clases privilegiadas »), pas un fait. L'idée souvent associée à Posada, « la mort rend tout le monde égal », n'est pas dans tes documents : **elle ne sera pas écrite**. |
+| ☑ | **El Catrín** | élite de l'acte 2 | Le cavalier de la Catrina. | Vient de la transcription de la fiche « elementos » (« Catrina et Catrín »), elle-même déduite d'une image. |
+| ☑ | **Don Chema, panadero**, grand-père défunt | une des trois fins | *Los muertos vuelven a visitar a sus familiares* (phrase de ton texte). | Personnage inventé. Dis-moi si tu préfères qu'aucun défunt de la famille ne soit nommé. |
+| ☑ | **Les recetas de la ofrenda** (où poser la foto, les velas, le pan…) | construction de la ofrenda | Rien : ce sont des consignes de jeu. | Les dispositions sont inventées pour l'exercice de description. Le jeu ne prétend pas qu'il existe une disposition traditionnelle. |
+| ☑ | **Mictlantecuhtli qui « juge »** | jefe de l'acte 2 | Il pose des questions sur tes textes. | Le nom est déjà validé. Le « jugement » est une invention de jeu, comme dans la version 1. |
+| ☑ | **Les ennemis qu'on « calme »** au lieu de les vaincre | tous les combats | Les choses de la fête rejoignent la fête. | Choix de ton, sans affirmation culturelle. |
+| ☑ | **El caricaturista** | une rencontre | Un dessinateur croque des calaveras et demande pourquoi la Catrina a été créée. | Le personnage n'est **pas** Posada et ne porte pas son nom ; Posada n'est cité que dans la réponse, comme dans ton texte. |
+| ☑ | **Musique « dans l'esprit » mexicain** | toute la partie | Rien. | Mélodies originales fabriquées par le navigateur. Aucune œuvre existante n'est reprise. |
+
+**Écarté d'office**, parce que tu as déjà désactivé la question correspondante ou que ce n'est pas dans tes documents :
+
+- les pétales de cempasúchil qui guident les âmes (question `cult-petalos-guian` désactivée) : l'histoire ne le dira pas ; le titre du jeu ne change pas ;
+- les papillons monarques comme âmes des défunts ;
+- les calaveritas en sucre (question `cult-calaveritas-azucar` désactivée) ;
+- toute ressemblance avec *Coco* : pas d'enfant musicien, pas d'ancêtre oublié, pas de pont de pétales, pas de photo manquante.
+
+### 9.2 Vocabulaire hors séquence
+
+Les **cartes, sorts, objets et défis** n'utilisent que le vocabulaire et les verbes de tes documents. L'**histoire et les dialogues** ont besoin de quelques mots en plus. Ils seront touchables pour en voir la traduction.
+
+| ✔ | Mots | Où |
+|---|---|---|
+| ☑ | la abuela, el abuelo, la familia, el perro | personnages |
+| ☑ | el viento, frío, el baile, elegante, el mercado, el panadero | histoire |
+| ☑ | ahora, aquí, con, también, pero | liaisons |
+| ☑ | ¿Me ayudas? · gracias · por favor · ¡cuidado! · ¡mira! | dialogues (¿Me ayudas? est déjà dans les événements de la version 1) |
+| ☑ | dos, tres | recetas (« Hay dos velas ») |
+| ☑ | les couleurs : azul, rojo, verde, amarillo, morado | jefe El Alebrije (« Ahora el alebrije es azul »). *Naranja* et *colorido* sont dans tes documents. |
+| ☑ | Noms de cartes : *golpe*, *hechizo*, *mirada*, *saber*, *receta*, *baraja*, *alma pendiente* | interface du jeu, jamais interrogés |
+
+Si ta classe n'a pas vu les couleurs ou les nombres, dis-le : le jefe et les recetas s'écrivent autrement.
+
+### 9.3 Verbes des sorts
+
+Chaque sort porte un verbe de ta fiche ESTAR + GERUNDIO ou de tes textes. À vérifier : que l'effet choisi corresponde bien au sens que tu donnes au verbe en classe.
+
+| ✔ | Verbe | Source | Effet proposé |
+|---|---|---|---|
+| ☑ | comer | fiche | soigner |
+| ☑ | rezar | P2 | protéger |
+| ☑ | cantar | fiche | donner du courage |
+| ☑ | bailar | texte | esquiver |
+| ☑ | tocar (música) | texte | frapper tous les ennemis |
+| ☑ | decorar | P2 | renforcer un objet de la ofrenda |
+| ☑ | volar | description d'image | se mettre hors de portée |
+| ☑ | dormir | fiche | endormir |
+| ☑ | leer | fiche | prévoir |
+| ☑ | oír | fiche | entendre le point faible |
+| ☑ | traer | fiche | faire rapporter une carte |
+| ☑ | pedir | fiche | demander de l'aide |
+| ☑ | decir | fiche | dire la vérité : démasquer, briser un bouclier |
+
+### 9.4 Textes à relire le moment venu
+
+Tout texte espagnol nouveau (histoire, dialogues, recetas, légendes d'état) sera listé ici, étape par étape, **avant** d'entrer dans le jeu. Les exemples cités dans `V2.md` sont des échantillons pour juger du niveau.

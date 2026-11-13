@@ -117,10 +117,10 @@ export function ProfileScreen({ list, current, onPick, onCreate, onDelete, onBac
 
 /* ======================= Accueil ======================= */
 
-export function Title({ content, profile, meta, saved, settings, onSettings, onStart, onResume, onNav, initialSeed, classe, onClassCode, onClearClass }: {
+export function Title({ content, profile, meta, saved, settings, onSettings, onStart, onResume, onNav, initialSeed, pending = 0, classe, onClassCode, onClearClass }: {
   content: Content; profile: Profile; meta: Meta; saved: RunState | null; settings: Settings;
   onSettings: (s: Settings) => void; onStart: (o: { seed: string; character: string; ascension: number }) => void; onResume: () => void;
-  onNav: (screen: 'profiles' | 'collection' | 'achievements' | 'carnet' | 'prof') => void; initialSeed: string;
+  onNav: (screen: 'profiles' | 'collection' | 'achievements' | 'carnet' | 'prof') => void; initialSeed: string; pending?: number;
   classe: { code: string; seed: string } | null; onClassCode: (code: string) => string | null; onClearClass: () => void;
 }) {
   const seq = content.sequence;
@@ -245,6 +245,12 @@ export function Title({ content, profile, meta, saved, settings, onSettings, onS
           Graine : même graine = même chemin pour toute la classe (défi de classe). Laisse vide pour un chemin au hasard.
         </span>
       </div>
+      {pending > 0 && (
+        <p class="almas-aviso">
+          <span aria-hidden="true">👻</span> <b>{pending} alma{pending > 1 ? 's' : ''} pendiente{pending > 1 ? 's' : ''}</b> : {pending > 1 ? 'des questions ratées t\'attendent' : 'une question ratée t\'attend'} au
+          début de la partie. Chaque âme libérée donne +1 PV.
+        </p>
+      )}
       <div class="fila">
         <button class={`btn ${saved ? 'sec' : ''}`} onClick={() => onStart({ seed: cleanSeed(seed), character, ascension: asc })}>
           {saved ? 'Nouvelle partie' : 'Commencer le chemin'}
@@ -263,7 +269,7 @@ export function Title({ content, profile, meta, saved, settings, onSettings, onS
           <b>Lis l'intention</b>La bulle de l'ennemi annonce ce qu'il fera si tu te trompes.
         </div>
         <div>
-          <b>Révise sans t'en rendre compte</b>Les questions que tu rates reviennent plus souvent, partie après partie (ton carnet).
+          <b>Tes erreurs reviennent</b>Une question ratée devient une « alma pendiente » : elle t'attend au début de la partie suivante. La réussir te rend 1 PV.
         </div>
         <div>
           <b>Collectionne</b>Chaque ennemi vaincu et chaque objet trouvé t'offre une carte de lotería.
@@ -440,6 +446,7 @@ export function Over({ game, unlocks, onMenu, onReplay }: { game: Game; unlocks:
         <div><b>{s.stats.ok}</b>bonnes réponses</div>
         <div><b>{pct} %</b>de réussite</div>
         <div><b>{minutes} min</b>de partie</div>
+        {(s.stats.freed ?? 0) > 0 && <div><b>{s.stats.freed}</b>{s.stats.freed === 1 ? 'alma liberada' : 'almas liberadas'}</div>}
       </div>
 
       {unlocks && (unlocks.cards.length > 0 || unlocks.achievements.length > 0 || unlocks.characters.length > 0 || unlocks.ascension !== null) && (
@@ -486,7 +493,9 @@ export function Over({ game, unlocks, onMenu, onReplay }: { game: Game; unlocks:
       {s.errors.length ? (
         <>
           <h2>Carnet d'erreurs</h2>
-          <p class="muted">Ces questions reviendront plus souvent dans tes prochaines parties.</p>
+          <p class="muted">
+            👻 Les questions que tu n'as pas encore réussies sont tes <b>almas pendientes</b> : elles t'attendront au début de ta prochaine partie. Chaque âme libérée te donnera +1 PV.
+          </p>
           <ul class="carnet">
             {s.errors.map(e => (
               <li key={e.id}>
