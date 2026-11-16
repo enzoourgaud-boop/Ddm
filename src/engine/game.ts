@@ -1,243 +1,42 @@
 /**
  * Moteur de partie : état sérialisable + actions. Aucun accès au DOM.
- * L'interface appelle les actions (choose, answer, usePower, proceed…) puis relit `state`.
+ * L'interface appelle les actions (choose, play, answer, usePower, proceed…) puis relit `state`.
+ *
+ * Le combat de la version 2 : à chaque tour, l'ennemi annonce son intention, l'élève reçoit une main de cartes
+ * et en joue une ; la carte s'ouvre sur un défi en espagnol tiré de la banque ; réussi, l'effet se joue ;
+ * raté, la carte ne fait rien. Puis l'ennemi agit, dans tous les cas.
  */
-import { type AccentPolicy, autoHint, fillBlanks, maskAnswer, normalize, type Verdict } from './answer';
-import { type ActMap, generateMap, nodeById, reachable, type MapNode } from './map';
-import {
-  answerText, canonicalValue, fixedMode, givenText, isChoice, isWritable, judgeQuestion, type Mode, orderTokens, questionWords, scissorsHint, STRONG_MODES, TF_OPTIONS,
-} from './questions';
+import { autoHint, fillBlanks, maskAnswer, normalize, type Verdict } from './answer';
+import { generateMap, nodeById, reachable, type MapNode } from './map';
+import { answerText, canonicalValue, givenText, isChoice, judgeQuestion, type Mode, scissorsHint, STRONG_MODES } from './questions';
 import { Rng } from './rng';
 import {
-  type Act, type Content, type Enemy, type EventEffect, type EventOutcome, type GameEvent, type Intent, type Item, type Phase,
-  type Question, type QuestionType, type Rarity, type RoomType, type Synergy, type Trait, levelNum,
+  type Act, type Card, type CardEffect, type CardInst, type Content, type Enemy, type EventEffect, type EventOutcome, type GameEvent, type Intent, type Item,
+  type Phase, type Question, type Rarity, type RoomType, type Synergy, type Trait, levelNum,
 } from './schema';
+import {
+  type Asked, BOSS_RARITY_WEIGHT, CARRY_MAX, type Feedback, type Fx, MAX_ASCENSION, type Offer, type QuizState, RARITY_WEIGHT,
+  REMOVE_CARD_PRICE, RETRY_CHANCE, RETRY_GAP, type RunState, type Settings, SHIELD_MAX, WARMUP_MAX,
+} from './core/types';
+import { damageOf, describeEffects, drawCards, effectsOf, instName, scaleEffects } from './combat/cards';
+import { Picker, type PickOpts } from './lang/picker';
 
-/* ======================= Types ======================= */
-
-export interface Settings {
-  /** Thèmes actifs (null = tous). */
-  themes: string[] | null;
-  /** Types de questions actifs (null = tous). */
-  types: string[] | null;
-  chrono: boolean;
-  /** Multiplie la durée du chrono (1 = normal). */
-  chronoFactor: number;
-  /** Multiplie la part de réponses écrites (0 = jamais d'écrit, 1 = normal, 2 = double). */
-  writeFactor: number;
-  accents: AccentPolicy;
-}
-
-export const DEFAULT_SETTINGS: Settings = {
-  themes: null, types: null, chrono: true, chronoFactor: 1, writeFactor: 1, accents: 'casi',
-};
-
+export * from './core/types';
 export type { Mode } from './questions';
+export { describeEffects, effectsOf, FAMILIES, instName } from './combat/cards';
 
-export interface Asked {
-  id: string;
-  mode: Mode;
-  options: string[];
-  again?: boolean;
-}
-
-export type Outcome = Verdict | 'timeout' | 'oracle';
-
-/** Effets visuels à jouer après une réponse (l'interface décide comment les animer). */
-export type Fx =
-  | 'enemyHit' | 'crit' | 'combo' | 'zero' | 'shieldHit' | 'vanish' | 'abanico' | 'heal' | 'enemyDown'
-  | 'alma' | 'playerHit' | 'blocked' | 'reflect' | 'mask' | 'canceled' | 'steal' | 'stealItem' | 'poison' | 'playerDown'
-  | 'casi' | 'phase' | 'revive' | 'playerHeal';
-
-export interface Feedback {
-  outcome: Outcome;
-  /** Effets visuels, dans l'ordre. */
-  fx: Fx[];
-  title: string;
-  given: string | null;
-  lines: string[];
-  alert?: string;
-  dmgToEnemy: number;
-  dmgToPlayer: number;
-  combo?: number;
-}
-
-export interface CombatState {
-  enemyId: string;
-  hp: number;
-  maxHp: number;
-  shield: number;
-  abanico: number;
-  phase: number;
-  turn: number;
-  intent: Intent;
-  /** L'intention de ce tour est annulée (Incienso). */
-  canceled: boolean;
-  attackBonus: number;
-  weakTheme: string | null;
-  juicio: boolean;
-  vanishUsed: boolean;
-  firstErrorUsed: boolean;
-  freeTranslateUsed: boolean;
-  rowCorrect: number;
-  /** Erreurs pendant ce combat (combat parfait = 0). */
-  errors: number;
-  fog: boolean;
-  q: Asked;
-  fb: Feedback | null;
-  used: { translate?: boolean; hint?: boolean; scissors?: boolean };
-  hidden: string[];
-  mask: string;
-  timeMax: number;
-  timeLeft: number;
-}
-
-/** Petite question hors combat (événement, coffre). */
-export interface QuizState {
-  q: Asked;
-  fb: { verdict: Verdict; given: string } | null;
-}
-
-export interface RoomResult {
+/** Une carte de la main, prête à être affichée. */
+export interface HandCard {
+  inst: CardInst;
+  card: Card;
+  /** Effets tels qu'ils se joueraient maintenant (amélioration, doublement, bonus compris). */
+  effects: CardEffect[];
+  /** Thème du défi et niveau. */
+  theme: string;
+  /** Le défi sera à l'écrit. */
+  write: boolean;
+  /** Texte en français des effets. */
   text: string;
-  textFr?: string;
-  lines: string[];
-}
-
-export interface EventState {
-  id: string;
-  choice: number | null;
-  quiz: QuizState | null;
-  result: RoomResult | null;
-  pendingFight: 'normal' | 'elite' | null;
-}
-
-export interface ChestState {
-  locked: boolean;
-  quiz: QuizState | null;
-  result: RoomResult | null;
-}
-
-export interface RestState {
-  result: RoomResult | null;
-}
-
-/** Échauffement de début de partie : les questions ratées aux parties précédentes (« almas pendientes »). */
-export interface WarmupState {
-  ids: string[];
-  i: number;
-  quiz: QuizState;
-  /** Âmes libérées pendant l'échauffement (chacune donne +1 PV). */
-  freed: number;
-}
-
-export interface ErrorEntry {
-  id: string;
-  prompt: string;
-  answer: string;
-  explanation: string;
-  given: string | null;
-}
-
-export interface Offer {
-  id: string;
-  sold?: boolean;
-}
-
-export type Screen = 'warmup' | 'map' | 'combat' | 'reward' | 'shop' | 'rest' | 'event' | 'chest' | 'over';
-
-export interface RunState {
-  v: 3;
-  /** Personnage choisi et niveau de difficulté (« Nivel de Calavera », 0 à 10). */
-  character: string;
-  ascension: number;
-  /** Bonus du personnage. */
-  bonus: { writeShare: number; restHeal: number };
-  /** Ennemis vaincus et objets obtenus (collection de lotería). */
-  defeated: string[];
-  obtained: string[];
-  seed: string;
-  rng: number;
-  screen: Screen;
-  hp: number;
-  maxHp: number;
-  gold: number;
-  act: number;
-  map: ActMap;
-  /** Salle actuelle (null = au départ de l'acte). */
-  node: string | null;
-  /** Salles traversées dans l'acte. */
-  path: string[];
-  inv: Record<string, number>;
-  relics: Record<string, number>;
-  upgrades: Record<string, boolean>;
-  streak: number;
-  poison: number;
-  reviveUsed: boolean;
-  luckyCount: number;
-  stats: {
-    ok: number; ko: number; casi: number; won: number; written: number; turns: number; rooms: number; startedAt: number; endedAt: number;
-    maxStreak: number; perfectFights: number; powersUsed: number;
-    /** Questions ratées (dans cette partie ou une précédente) puis réussies : « almas liberadas ». */
-    freed?: number;
-  };
-  seen: Record<string, number>;
-  /** Dernières questions posées (les plus récentes à la fin), pour éviter les enchaînements trop proches. */
-  recent?: string[];
-  /** Questions ratées à reposer (« almas pendientes ») : celles des parties précédentes, puis celles de cette partie. */
-  retry: string[];
-  warmup?: WarmupState | null;
-  errors: ErrorEntry[];
-  metEnemies: string[];
-  seenEvents: string[];
-  combat: CombatState | null;
-  offer: Offer[] | null;
-  offerKind: 'normal' | 'elite' | 'jefe' | null;
-  event: EventState | null;
-  chest: ChestState | null;
-  rest: RestState | null;
-  result: 'win' | 'lose' | null;
-}
-
-/** Les types « manipulables », moins nombreux dans la banque, sortent un peu plus souvent pour varier. */
-const TYPE_WEIGHT: Partial<Record<QuestionType, number>> = { ordre: 2.2, association: 2, scene: 1.8, ecoute: 1.6, 'vrai-faux': 1.3 };
-
-export const MAX_ASCENSION = 10;
-
-/** Effets cumulatifs de chaque « Nivel de Calavera ». */
-export const ASCENSION_RULES: string[] = [
-  'Le chemin normal.',
-  'Les ennemis ont 1 PV de plus.',
-  'Le chrono est plus court de 3 secondes.',
-  'Une aide de départ en moins.',
-  'Les élites ont 2 PV et 1 attaque de plus.',
-  'Les combats rapportent moins de monedas.',
-  "La Ofrenda soigne moins (−10 points).",
-  'Les jefes ont 3 PV de plus.',
-  'Davantage de questions à écrire.',
-  '3 PV de moins au départ.',
-  'Le jefe final a 6 PV et 1 attaque de plus.',
-];
-
-/** Nombre de questions récentes comparées pour éviter les enchaînements proches. */
-export const RECENT_WINDOW = 6;
-/** Une question ratée ne revient pas avant ce nombre de questions. */
-export const RETRY_GAP = 6;
-/** Chance, à chaque question de combat, de reposer une question ratée en attente. */
-export const RETRY_CHANCE = 0.35;
-/** Échauffement : nombre de questions au plus, et nombre de questions ratées reprises d'une partie à l'autre. */
-export const WARMUP_MAX = 4;
-export const CARRY_MAX = 12;
-
-const RARITY_WEIGHT: Record<Rarity, number> = { comun: 60, rara: 30, legendaria: 10 };
-const BOSS_RARITY_WEIGHT: Record<Rarity, number> = { comun: 15, rara: 55, legendaria: 30 };
-
-interface PickOpts {
-  themes: string[];
-  level: 1 | 2 | 3 | 4;
-  needWrite: boolean;
-  weakTheme?: string | null;
-  onlyType?: QuestionType;
 }
 
 /* ======================= Moteur ======================= */
@@ -247,13 +46,13 @@ export class Game {
   settings: Settings;
   state: RunState;
   private rng: Rng;
+  private picker: Picker;
   private qById: Map<string, Question>;
   private enemyById: Map<string, Enemy>;
   private itemById: Map<string, Item>;
+  private cardById: Map<string, Card>;
   private eventById: Map<string, GameEvent>;
   private listeners = new Set<() => void>();
-  /** Poids de tirage d'une question (révision de Leitner). */
-  weightOf: (q: Question) => number = () => 1;
   /** Appelé à chaque réponse corrigée (mise à jour des boîtes de Leitner). */
   onRecord?: (q: Question, v: Verdict) => void;
 
@@ -265,35 +64,20 @@ export class Game {
     this.qById = new Map(content.questions.map(q => [q.id, q]));
     this.enemyById = new Map(content.enemies.map(e => [e.id, e]));
     this.itemById = new Map(content.items.map(i => [i.id, i]));
+    this.cardById = new Map(content.cards.map(c => [c.id, c]));
     this.eventById = new Map(content.events.map(e => [e.id, e]));
-    // mots importants de chaque question, sans les mots trop fréquents dans la banque
-    const raw = new Map(content.questions.map(q => [q.id, questionWords(q)]));
-    const df = new Map<string, number>();
-    for (const w of raw.values()) for (const x of w.all) df.set(x, (df.get(x) ?? 0) + 1);
-    const tooCommon = Math.max(12, content.questions.length * 0.06);
-    const keep = (set: Set<string>) => new Set([...set].filter(x => (df.get(x) ?? 0) <= tooCommon));
-    this.words = new Map([...raw].map(([id, w]) => [id, { all: keep(w.all), answer: keep(w.answer) }]));
+    this.picker = new Picker(content, { rng: this.rng, settings: () => this.settings, state: () => this.state });
   }
 
-  private words: Map<string, { all: Set<string>; answer: Set<string> }>;
-
-  /** Deux questions sont « trop proches » si elles partagent 2 mots importants, ou si la réponse de l'une est dans l'autre. */
+  /** Poids de tirage d'une question (révision de Leitner). */
+  set weightOf(f: (q: Question) => number) {
+    this.picker.weightOf = f;
+  }
+  get weightOf() {
+    return this.picker.weightOf;
+  }
   closeTo(a: string, b: string): boolean {
-    if (a === b) return true;
-    const A = this.words.get(a), B = this.words.get(b);
-    if (!A || !B) return false;
-    let shared = 0;
-    for (const w of A.all) if (B.all.has(w)) shared++;
-    if (shared >= 2) return true;
-    for (const w of A.answer) if (B.all.has(w)) return true;
-    for (const w of B.answer) if (A.all.has(w)) return true;
-    return false;
-  }
-
-  /** La question ressemble-t-elle à l'une des dernières posées ? */
-  private clashes(id: string, window = RECENT_WINDOW): boolean {
-    const r = this.state.recent ?? [];
-    return r.slice(-window).some(x => this.closeTo(id, x));
+    return this.picker.closeTo(a, b);
   }
 
   /** Démarre une nouvelle partie à partir d'une graine. */
@@ -311,16 +95,26 @@ export class Game {
     }
     for (const [id, n] of Object.entries(ch?.bonus.items ?? {})) inv[id] = (inv[id] ?? 0) + n;
     const relics: Record<string, number> = { ...(ch?.bonus.relics ?? {}) };
-    const hp = Math.max(5, p.hp + (ch?.bonus.hp ?? 0) - (asc >= 9 ? 3 : 0));
+    const hp = Math.max(5, p.hp + (ch?.bonus.hp ?? 0) - (asc >= 9 ? 5 : 0));
+    const known = new Set(content.cards.map(c => c.id));
+    let uid = 1;
+    const deck: CardInst[] = [];
+    for (const id of p.deck) if (known.has(id)) deck.push({ uid: uid++, id });
+    for (const b of ch?.bonus.cards ?? []) {
+      if (!known.has(b.id)) continue;
+      const inst: CardInst = { uid: uid++, id: b.id };
+      if (b.up) inst.up = b.up;
+      deck.push(inst);
+    }
     const state: RunState = {
-      v: 3, seed, rng: rng.state, screen: 'map', hp, maxHp: hp, gold: 0, act: 0,
+      v: 4, seed, rng: rng.state, screen: 'map', hp, maxHp: hp, gold: 0, act: 0,
       character: ch?.id ?? '', ascension: asc, bonus: { writeShare: ch?.bonus.writeShare ?? 0, restHeal: ch?.bonus.restHeal ?? 0.3 },
       defeated: [], obtained: Object.keys(relics),
       map: generateMap(rng, content.sequence.map), node: null, path: [],
-      inv, relics, upgrades: {}, streak: 0, poison: 0, reviveUsed: false, luckyCount: 0,
-      stats: { ok: 0, ko: 0, casi: 0, won: 0, written: 0, turns: 0, rooms: 0, startedAt: now, endedAt: 0, maxStreak: 0, perfectFights: 0, powersUsed: 0 },
+      inv, relics, upgrades: {}, deck, nextUid: uid, streak: 0, poison: 0, reviveUsed: false, luckyCount: 0,
+      stats: { ok: 0, ko: 0, casi: 0, won: 0, written: 0, turns: 0, rooms: 0, startedAt: now, endedAt: 0, maxStreak: 0, perfectFights: 0, powersUsed: 0, cards: 0, cardsOk: 0 },
       seen: {}, retry: [], errors: [], metEnemies: [], seenEvents: [],
-      combat: null, offer: null, offerKind: null, event: null, chest: null, rest: null, result: null,
+      combat: null, offer: null, offerKind: null, cardOffer: null, event: null, chest: null, rest: null, result: null,
     };
     const g = new Game(content, settings, state);
     g.startWarmup(opts.pending ?? []);
@@ -332,7 +126,7 @@ export class Game {
   updateSettings(settings: Settings) {
     this.settings = settings;
     const c = this.state.combat;
-    // chrono coupé : la question en cours n'est plus minutée ; rallumé, il reprend à la question suivante
+    // chrono coupé : le défi en cours n'est plus minuté ; rallumé, il reprend au défi suivant
     if (c && !settings.chrono) c.timeMax = c.timeLeft = 0;
     this.commit();
   }
@@ -345,7 +139,7 @@ export class Game {
   }
 
   private quizFor(q: Question): QuizState {
-    return { q: this.makeAsked(q, this.chooseMode(q, this.writeChance())), fb: null };
+    return { q: this.picker.makeAsked(q, this.picker.chooseMode(q, this.writeChance())), fb: null };
   }
 
   /** Les questions ratées aux parties précédentes : les premières en échauffement, les suivantes pendant la partie. */
@@ -354,7 +148,7 @@ export class Game {
     const themes = this.activeThemes();
     const ids = [...new Set(pending)].filter(id => {
       const q = this.qById.get(id);
-      return !!q && this.isUsable(q) && themes.includes(q.theme);
+      return !!q && this.picker.isUsable(q) && themes.includes(q.theme);
     }).slice(0, CARRY_MAX);
     const warm = ids.slice(0, WARMUP_MAX);
     s.retry = ids.slice(WARMUP_MAX);
@@ -418,8 +212,10 @@ export class Game {
     const c = this.state.combat, e = this.enemy;
     return c && e?.phases ? e.phases[c.phase] : null;
   }
+  /** Question du défi en cours (null tant qu'aucune carte n'est jouée). */
   get question(): Question | null {
-    return this.state.combat ? this.qById.get(this.state.combat.q.id) ?? null : null;
+    const c = this.state.combat;
+    return c && c.stage !== 'hand' && c.q.id ? this.qById.get(c.q.id) ?? null : null;
   }
   get currentNode(): MapNode | null {
     return this.state.node ? nodeById(this.state.map, this.state.node) ?? null : null;
@@ -429,6 +225,12 @@ export class Game {
   }
   item(id: string): Item | undefined {
     return this.itemById.get(id);
+  }
+  cardDef(id: string): Card | undefined {
+    return this.cardById.get(id);
+  }
+  cardInst(uid: number): CardInst | undefined {
+    return this.state.deck.find(c => c.uid === uid);
   }
   getQuestion(id: string): Question | undefined {
     return this.qById.get(id);
@@ -488,7 +290,10 @@ export class Game {
     if (!(s.inv[id] > 0) && !free) return 'non possédé';
     if (it.auto) return 'automatique';
     if (it.effect === 'heal') return s.hp >= s.maxHp ? 'vie pleine' : null;
-    if (s.screen !== 'combat' || !c || c.fb || !q) return 'hors combat';
+    if (s.screen !== 'combat' || !c || c.fb) return 'hors combat';
+    if (it.effect === 'cancelIntent') return c.canceled ? 'déjà utilisé' : null;
+    if (it.effect === 'swap') return null;
+    if (c.stage !== 'challenge' || !q) return 'choisis d’abord une carte';
     if (c.fog) return 'brouillard';
     if (this.enemy?.modifier === 'niebla' && (it.effect === 'translate' || it.effect === 'hint')) return 'niebla';
     switch (it.effect) {
@@ -496,7 +301,6 @@ export class Game {
       case 'hint': return c.used.hint ? 'déjà utilisé' : null;
       case 'scissors': return c.used.scissors ? 'déjà utilisé' : c.q.mode === 'tf' ? 'inutile ici' : null;
       case 'time': return c.timeMax ? null : 'pas de chrono';
-      case 'cancelIntent': return c.canceled ? 'déjà utilisé' : null;
       default: return null;
     }
   }
@@ -521,6 +325,7 @@ export class Game {
     const s = this.state;
     s.offer = null;
     s.offerKind = null;
+    s.cardOffer = null;
     s.event = s.chest = s.rest = null;
     switch (type) {
       case 'combat': return this.startFight(this.pickEnemy('normal'));
@@ -530,6 +335,7 @@ export class Game {
         const aides = this.pickItems(this.available('aide'), 3, RARITY_WEIGHT);
         const rel = this.pickItems(this.available('reliquia'), 2, RARITY_WEIGHT);
         s.offer = [...aides, ...rel].map(id => ({ id }));
+        s.cardOffer = this.rollCards(2).map(id => ({ id }));
         s.screen = 'shop';
         return;
       }
@@ -558,6 +364,7 @@ export class Game {
     s.combat = null;
     s.offer = null;
     s.offerKind = null;
+    s.cardOffer = null;
     s.event = s.chest = s.rest = null;
   }
 
@@ -592,54 +399,7 @@ export class Game {
 
   /** Thèmes jouables (réglages ∩ séquence). */
   activeThemes(): string[] {
-    const all = this.content.sequence.themes.map(t => t.id);
-    const on = this.settings.themes ? all.filter(t => this.settings.themes!.includes(t)) : all;
-    return on.length ? on : all;
-  }
-
-  private isUsable(q: Question): boolean {
-    if (q.disabled) return false;
-    if (this.settings.types && !this.settings.types.includes(q.type)) return false;
-    return true;
-  }
-
-  private pick(o: PickOpts): Question {
-    const s = this.state;
-    const ok = (q: Question) => this.isUsable(q) && (!o.needWrite || isWritable(q)) && (!o.onlyType || q.type === o.onlyType);
-    const order = [o.level, ...[4, 3, 2, 1].filter(l => l < o.level), ...[1, 2, 3, 4].filter(l => l > o.level)];
-    const candidatesFor = (theme: string): Question[] => {
-      for (const l of order) {
-        const pool = this.content.questions.filter(q => q.theme === theme && levelNum(q.level) === l && ok(q));
-        if (pool.length) return pool;
-      }
-      return [];
-    };
-    const withPool = o.themes.map(t => ({ t, pool: candidatesFor(t) })).filter(x => x.pool.length);
-    if (!withPool.length && o.onlyType) return this.pick({ ...o, onlyType: undefined });
-    if (!withPool.length) {
-      const any = this.content.questions.filter(q => this.isUsable(q));
-      return this.rng.pick(any.length ? any : this.content.questions);
-    }
-    // pour chaque thème : questions pas encore vues, puis sans ressemblance avec les dernières posées
-    const refine = (pool: Question[]) => {
-      const fresh = pool.filter(q => !s.seen[q.id]);
-      const base = fresh.length ? fresh : pool;
-      return { base, far: base.filter(q => !this.clashes(q.id)) };
-    };
-    let chosen = this.rng.pick(withPool);
-    if (o.weakTheme && this.rng.chance(0.4)) chosen = withPool.find(x => x.t === o.weakTheme) ?? chosen;
-    let { base, far } = refine(chosen.pool);
-    if (!far.length) {
-      // ce thème n'a plus que des questions trop proches : on essaie un autre thème
-      const other = this.rng.shuffle(withPool).map(x => refine(x.pool)).find(x => x.far.length);
-      if (other) ({ base, far } = other);
-    }
-    const pool = far.length ? far : base;
-    return this.rng.weighted(pool, q => this.weightOf(q) * (TYPE_WEIGHT[q.type] ?? 1));
-  }
-
-  private canWrite(q: Question): boolean {
-    return this.settings.writeFactor > 0 && isWritable(q);
+    return this.picker.activeThemes();
   }
 
   /** Part de base des réponses écrites hors règles spéciales. */
@@ -647,31 +407,6 @@ export class Game {
     const s = this.state;
     const extra = s.bonus.writeShare + (s.ascension >= 8 ? 0.15 : 0);
     return Math.min(1, (this.act.writeShare + boost + extra) * this.settings.writeFactor);
-  }
-
-  private makeAsked(q: Question, mode: Mode, again = false): Asked {
-    const s = this.state;
-    s.seen[q.id] = (s.seen[q.id] ?? 0) + 1;
-    s.recent = [...(s.recent ?? []), q.id].slice(-12);
-    let options: string[] = [];
-    if (mode === 'qcm' && isChoice(q)) options = this.rng.shuffle([q.answer, ...this.rng.shuffle(q.distractors).slice(0, 3)]);
-    else if (mode === 'tf') options = [...TF_OPTIONS];
-    else if (mode === 'order' && q.type === 'ordre') {
-      const toks = [...orderTokens(q), ...q.extra];
-      options = this.rng.shuffle(toks);
-      for (let k = 0; k < 5 && options.join(' ') === orderTokens(q).join(' '); k++) options = this.rng.shuffle(toks);
-    } else if (mode === 'match' && q.type === 'association') options = this.rng.shuffle(q.pairs.map(p => p[1]));
-    else if (mode === 'place' && q.type === 'scene') options = this.rng.shuffle(q.scene.items.map(it => it.object));
-    return { id: q.id, mode, options, again: again || undefined };
-  }
-
-  /** Mode de réponse : imposé par le type, sinon QCM ou écrit. */
-  private chooseMode(q: Question, writeP: number, forceWrite = false): Mode {
-    const fm = fixedMode(q);
-    if (fm && fm !== 'write') return fm;
-    if (!this.canWrite(q)) return 'qcm';
-    if (fm === 'write' || forceWrite) return 'write';
-    return this.rng.chance(writeP) ? 'write' : 'qcm';
   }
 
   /**
@@ -720,8 +455,8 @@ export class Game {
   private makeQuiz(o: { themes?: string[]; write?: boolean; level?: 1 | 2 | 3 }): QuizState {
     const active = this.activeThemes();
     const themes = o.themes?.filter(t => active.includes(t)) ?? [];
-    const q = this.pick({ themes: themes.length ? themes : active, level: o.level ?? this.act.level, needWrite: !!o.write && this.settings.writeFactor > 0 });
-    return { q: this.makeAsked(q, this.chooseMode(q, this.writeChance(), !!o.write)), fb: null };
+    const q = this.picker.pick({ themes: themes.length ? themes : active, level: o.level ?? this.act.level, needWrite: !!o.write && this.settings.writeFactor > 0 });
+    return { q: this.picker.makeAsked(q, this.picker.chooseMode(q, this.writeChance(), !!o.write)), fb: null };
   }
 
   private answerQuiz(quiz: QuizState, value: string): Verdict | null {
@@ -742,14 +477,16 @@ export class Game {
     s.screen = 'combat';
     s.offer = null;
     s.offerKind = null;
+    s.cardOffer = null;
     s.poison = 0;
     const abanico = e.phases?.[0]?.abanico ?? 0;
     const a = s.ascension;
-    const hp = e.hp + (a >= 1 ? 1 : 0) + (a >= 4 && e.kind === 'elite' ? 2 : 0) + (a >= 7 && (e.kind === 'jefe' || e.kind === 'final') ? 3 : 0) + (a >= 10 && e.kind === 'final' ? 6 : 0);
+    const hp = e.hp + (a >= 1 ? 2 : 0) + (a >= 4 && e.kind === 'elite' ? 4 : 0) + (a >= 7 && (e.kind === 'jefe' || e.kind === 'final') ? 6 : 0) + (a >= 10 && e.kind === 'final' ? 10 : 0);
     s.combat = {
       enemyId: e.id, hp, maxHp: hp, shield: 0, abanico: this.settings.writeFactor > 0 ? abanico : 0,
       phase: 0, turn: 0, intent: { kind: 'attack' }, canceled: false, attackBonus: e.phases?.[0]?.attackBonus ?? 0, weakTheme: null,
       juicio: false, vanishUsed: false, firstErrorUsed: false, freeTranslateUsed: false, rowCorrect: 0, errors: 0, fog: false,
+      stage: 'hand', draw: this.rng.shuffle(s.deck.map(c => c.uid)), hand: [], discard: [], spent: [], played: null, lastCard: null, pshield: 0, double: false,
       q: { id: '', mode: 'qcm', options: [] }, fb: null, used: {}, hidden: [], mask: '', timeMax: 0, timeLeft: 0,
     };
     this.nextTurn();
@@ -770,32 +507,114 @@ export class Game {
     return { ...it };
   }
 
+  /** Nouveau tour : l'ennemi annonce, une main est distribuée. */
   private nextTurn() {
     const s = this.state, c = s.combat!;
     c.turn++;
     s.stats.turns++;
     c.intent = this.rollIntent();
     c.canceled = false;
+    c.pshield = 0;
+    c.played = null;
+    c.fb = null;
+    c.q = { id: '', mode: 'qcm', options: [] };
+    c.used = {};
+    c.hidden = [];
+    c.mask = '';
+    c.timeMax = c.timeLeft = 0;
     const tr = this.traits();
     c.fog = c.intent.kind === 'fog';
     c.juicio = tr.has('juicio') && c.turn % 3 === 0;
-    c.weakTheme = tr.has('colorShift') ? this.rng.pick(this.activeThemes()) : null;
+    c.weakTheme = tr.has('colorShift') ? this.rng.pick(this.deckThemes()) : null;
     if (c.intent.kind === 'shield') c.shield += c.intent.value ?? 2;
-    this.ask();
+    this.deal();
+    c.stage = 'hand';
+  }
+
+  /** Thèmes des cartes de la baraja (pour la faiblesse de l'Alebrije). */
+  private deckThemes(): string[] {
+    const t = new Set(this.state.deck.map(d => this.cardById.get(d.id)?.theme).filter((x): x is string => !!x));
+    const active = this.activeThemes().filter(x => t.has(x));
+    return active.length ? active : this.activeThemes();
+  }
+
+  private deal() {
+    const s = this.state, c = s.combat!;
+    const n = this.content.sequence.player.hand;
+    // les cartes non jouées de la main précédente vont à la défausse
+    c.discard.push(...c.hand);
+    c.hand = [];
+    // les cartes « une fois par combat » déjà jouées ne reviennent pas
+    c.discard = c.discard.filter(u => !c.spent.includes(u));
+    const r = drawCards(this.rng, c.draw.filter(u => !c.spent.includes(u)), c.discard, n);
+    c.hand = r.hand;
+    c.draw = r.draw;
+    c.discard = r.discard;
+  }
+
+  /** Les cartes en main, avec leurs effets calculés. */
+  hand(): HandCard[] {
+    const c = this.state.combat;
+    if (!c) return [];
+    return c.hand.map(uid => this.handCard(uid)).filter((x): x is HandCard => !!x);
+  }
+
+  private handCard(uid: number): HandCard | null {
+    const inst = this.cardInst(uid), c = this.state.combat;
+    const card = inst && this.cardById.get(inst.id);
+    if (!inst || !card || !c) return null;
+    const effects = this.effectsNow(card, inst);
+    return { inst, card, effects, theme: this.cardTheme(card), write: inst.up === 'pluma', text: describeEffects(effects) };
+  }
+
+  private describe(effects: CardEffect[]): string {
+    return describeEffects(effects);
+  }
+
+  /** Effets d'une carte si elle était jouée maintenant : amélioration, pluma, doublement. */
+  private effectsNow(card: Card, inst: CardInst): CardEffect[] {
+    const c = this.state.combat;
+    let k = 1;
+    if (inst.up === 'pluma') k *= 2;
+    if (c?.double) k *= 2;
+    return scaleEffects(effectsOf(card, inst), k);
+  }
+
+  /** Thème du défi d'une carte : celui de la carte s'il est actif, sinon un thème actif. */
+  private cardTheme(card: Card): string {
+    const active = this.activeThemes();
+    return active.includes(card.theme) ? card.theme : active[0];
+  }
+
+  /** Joue la carte n°i de la main : le défi s'ouvre. */
+  play(i: number): boolean {
+    const s = this.state, c = s.combat;
+    if (s.screen !== 'combat' || !c || c.stage !== 'hand') return false;
+    const uid = c.hand[i];
+    const hc = uid !== undefined ? this.handCard(uid) : null;
+    if (!hc) return false;
+    c.played = uid;
+    c.hand = c.hand.filter(u => u !== uid);
+    s.stats.cards = (s.stats.cards ?? 0) + 1;
+    c.stage = 'challenge';
+    this.ask(hc);
+    this.commit();
+    return true;
   }
 
   private needsWrite(): boolean {
     return this.enemy?.modifier === 'soloEscrito' && this.settings.writeFactor > 0;
   }
 
-  /** Seules les questions possibles à l'écrit sont tirées (élite « Solo escrito », abanico). */
-  private writableOnly(): boolean {
-    return this.settings.writeFactor > 0 && (this.enemy?.modifier === 'soloEscrito' || this.traits().has('abanico'));
+  /** Seules les questions possibles à l'écrit sont tirées (élite « Solo escrito », abanico, carte « a la pluma »). */
+  private writableOnly(hc?: HandCard | null): boolean {
+    return this.settings.writeFactor > 0 && (this.enemy?.modifier === 'soloEscrito' || this.traits().has('abanico') || !!hc?.write);
   }
 
-  private targetLevel(): 1 | 2 | 3 | 4 {
+  private targetLevel(card?: Card): 1 | 2 | 3 | 4 {
     const e = this.enemy!, ph = this.phase;
     if (ph?.levels?.length) return levelNum(this.rng.pick(ph.levels));
+    if (card?.level) return levelNum(card.level);
     if (e.kind === 'final') return this.rng.chance(0.6) ? 4 : 3;
     const L = this.act.level;
     if (e.kind === 'jefe' && L >= 2) return this.rng.chance(0.25) ? 4 : L;
@@ -803,41 +622,42 @@ export class Game {
     return L === 1 || this.rng.chance(0.65) ? L : ((L - 1) as 1 | 2);
   }
 
-  private combatPickOpts(easier = false): PickOpts {
+  private combatPickOpts(hc: HandCard | null, easier = false): PickOpts {
     const c = this.state.combat!, e = this.enemy!, ph = this.phase;
-    let themes = this.activeThemes();
-    if (ph?.themes) {
+    let themes = hc ? [hc.theme] : this.activeThemes();
+    if (ph?.themes && !hc) {
       const t = themes.filter(x => ph.themes!.includes(x));
       if (t.length) themes = t;
     }
-    if (c.juicio && e.focusTheme && themes.includes(e.focusTheme)) themes = [e.focusTheme];
-    let level = this.targetLevel();
+    if (c.juicio && e.focusTheme && this.activeThemes().includes(e.focusTheme)) themes = [e.focusTheme];
+    let level = this.targetLevel(hc?.card);
     if (easier && level > 1) level = (level - 1) as 1 | 2 | 3;
     const listen = c.intent.kind === 'listen' && !c.canceled;
-    return { themes, level, needWrite: this.writableOnly(), weakTheme: c.weakTheme, onlyType: listen ? 'ecoute' : undefined };
+    return { themes, level, needWrite: this.writableOnly(hc), weakTheme: null, onlyType: listen ? 'ecoute' : undefined };
   }
 
-  private modeFor(q: Question): Mode {
+  private modeFor(q: Question, hc: HandCard | null): Mode {
     const e = this.enemy!, tr = this.traits();
     let p = this.writeChance(e.kind === 'jefe' ? 0.1 : 0);
     if (e.kind === 'final') p = Math.min(1, 0.5 * this.settings.writeFactor);
     if (tr.has('abanico')) p = Math.min(1, 0.75 * this.settings.writeFactor);
-    return this.chooseMode(q, p, this.needsWrite() || this.relicCount('allWrite') > 0);
+    return this.picker.chooseMode(q, p, this.needsWrite() || !!hc?.write || this.relicCount('allWrite') > 0);
   }
 
-  private ask(forceNew = false, easier = false) {
+  /** Tire le défi de la carte jouée. */
+  private ask(hc: HandCard | null, forceNew = false, easier = false) {
     const s = this.state, c = s.combat!, e = this.enemy!;
     let q: Question | undefined;
     let again = false;
+    const opts = this.combatPickOpts(hc, easier);
     if (!forceNew && s.retry.length && e.kind !== 'final' && !c.juicio && this.rng.chance(RETRY_CHANCE)) {
-      // alma pendiente : une question ratée, posable maintenant, pas trop tôt et pas proche des dernières posées.
+      // alma pendiente : une question ratée, du thème de la carte, posable maintenant, pas trop tôt et pas proche des dernières posées.
       // Elle reste en attente tant qu'elle n'est pas réussie.
       const recent = (s.recent ?? []).slice(-RETRY_GAP);
-      const listen = c.intent.kind === 'listen' && !c.canceled;
-      const writeOnly = this.writableOnly();
       const id = s.retry.find(r => {
         const x = this.qById.get(r);
-        return !!x && this.isUsable(x) && !recent.includes(r) && !this.clashes(r) && (!writeOnly || this.canWrite(x)) && (!listen || x.type === 'ecoute');
+        return !!x && this.picker.isUsable(x) && opts.themes.includes(x.theme) && !recent.includes(r) && !this.picker.clashes(r)
+          && (!opts.needWrite || this.picker.canWrite(x)) && (!opts.onlyType || x.type === opts.onlyType);
       });
       if (id) {
         q = this.qById.get(id);
@@ -845,10 +665,10 @@ export class Game {
       }
     }
     if (!q) {
-      q = this.pick(this.combatPickOpts(easier));
+      q = this.picker.pick(opts);
       again = false;
     }
-    c.q = this.makeAsked(q, this.modeFor(q), again);
+    c.q = this.picker.makeAsked(q, this.modeFor(q, hc), again);
     const mode = c.q;
     c.fb = null;
     c.used = {};
@@ -873,7 +693,7 @@ export class Game {
   /** Avance le chrono. Renvoie true si l'état a changé (fin du temps). */
   tick(ms: number): boolean {
     const c = this.state.combat;
-    if (this.state.screen !== 'combat' || !c || c.fb || !c.timeMax) return false;
+    if (this.state.screen !== 'combat' || !c || c.stage !== 'challenge' || c.fb || !c.timeMax) return false;
     c.timeLeft = Math.max(0, c.timeLeft - ms);
     if (c.timeLeft <= 0) {
       this.answer(null, 'timeout');
@@ -885,13 +705,21 @@ export class Game {
   /** Juge une réponse au combat sans rien modifier. */
   judge(value: string): Verdict | null {
     const c = this.state.combat;
-    return c ? this.judgeAsked(c.q, value) : null;
+    return c && c.stage === 'challenge' ? this.judgeAsked(c.q, value) : null;
   }
 
-  /** Répond à la question en cours. how = 'timeout' ou 'oracle' pour les cas spéciaux. */
+  /** Carte en cours de jeu. */
+  get playedCard(): HandCard | null {
+    const c = this.state.combat;
+    return c?.played != null ? this.handCard(c.played) : null;
+  }
+
+  /** Répond au défi de la carte jouée. how = 'timeout' ou 'oracle' pour les cas spéciaux. */
   answer(value: string | null, how: 'normal' | 'timeout' | 'oracle' = 'normal'): Feedback | null {
     const s = this.state, c = s.combat, q = this.question, e = this.enemy;
-    if (s.screen !== 'combat' || !c || !q || !e || c.fb) return null;
+    if (s.screen !== 'combat' || !c || c.stage !== 'challenge' || !q || !e || c.fb) return null;
+    const hc = this.playedCard;
+    if (!hc) return null;
     let v: Verdict;
     if (how === 'oracle') v = 'ok';
     else if (how === 'timeout') v = 'ko';
@@ -901,140 +729,105 @@ export class Game {
       v = j;
     }
     const seq = this.content.sequence;
-    const fb: Feedback = { outcome: how === 'normal' ? v : how, fx: [], title: '', given: value, lines: [], dmgToEnemy: 0, dmgToPlayer: 0 };
+    const fb: Feedback = {
+      outcome: how === 'normal' ? v : how, fx: ['card'], title: '', given: value, lines: [], enemyLines: [], card: hc.card.id,
+      dmgToEnemy: 0, dmgToPlayer: 0, shieldGained: 0, healed: 0,
+    };
     const tr = this.traits();
     // l'Oráculo amélioré compte comme une vraie réponse écrite
     const strongOracle = how === 'oracle' && this.isUpgraded(this.idByEffect('oracle') ?? '');
     const counts = how !== 'oracle' || strongOracle;
     const written = STRONG_MODES.includes(c.q.mode) || strongOracle;
+    const name = instName(hc.card, hc.inst);
 
-    if (v === 'ok') {
-      let dmg = 1 + this.relicValue('damageBonus');
-      if (counts) {
-        s.streak++;
-        s.stats.maxStreak = Math.max(s.stats.maxStreak, s.streak);
-        c.rowCorrect++;
-        const freed = how !== 'oracle' && this.record(q, 'ok', value, c.q.mode);
-        if (written) {
-          dmg += 1 + this.relicValue('writeBonus');
-          if (this.relicCount('allWrite')) dmg += this.relicValue('allWrite', 2);
-          const g = this.synergy('goldOnWrite');
-          if (g) s.gold += g.value ?? 1;
-        }
-        if (written) fb.fx.push('crit');
-        const th = this.streakThreshold;
-        if (s.streak >= th) {
-          fb.fx.push('combo');
-          let bonus = (th === 2 ? 2 : 1) + this.relicValue('streakBonus');
-          if (this.synergy('streakDouble')) bonus *= 2;
-          dmg += bonus;
-          fb.combo = s.streak;
-        }
-        if (c.weakTheme === q.theme) {
-          dmg += 2;
-          fb.lines.push(`${e.name} est vulnérable à ce thème : +2 dégâts.`);
-        }
-        if (tr.has('ultimoBaile') && s.streak >= 3) {
-          dmg *= 2;
-          fb.lines.push(`Série de ${s.streak} : ${e.name} titube, dégâts doublés !`);
-        }
-        const heal = this.synergy('healOnCorrect');
-        if (heal && s.hp < s.maxHp) {
-          const h = Math.min(s.maxHp - s.hp, heal.value ?? 1);
-          s.hp += h;
-          fb.fx.push('playerHeal');
-          fb.lines.push(`${heal.name} : +${h} PV.`);
-        }
-        if (freed) {
-          const h = Math.min(s.maxHp - s.hp, 1);
-          s.hp += h;
-          if (h && !fb.fx.includes('playerHeal')) fb.fx.push('playerHeal');
-          fb.fx.push('alma');
-          fb.lines.push(`Alma liberada : tu avais raté cette question, tu la réussis.${h ? ' +1 PV.' : ''}`);
-        }
-        if (this.relicCount('luckyCards') && how !== 'oracle') {
-          s.luckyCount++;
-          const every = this.relicValue('luckyCards', 4) / this.relicCount('luckyCards');
-          if (s.luckyCount % every === 0) {
-            const id = this.gainRandom('aide');
-            if (id) fb.lines.push(`Lotería ! Tu gagnes : ${this.itemById.get(id)!.name}.`);
+    if (v === 'ok' || v === 'casi') {
+      let freed = false;
+      if (v === 'ok') {
+        if (counts) {
+          s.streak++;
+          s.stats.maxStreak = Math.max(s.stats.maxStreak, s.streak);
+          c.rowCorrect++;
+          freed = how !== 'oracle' && this.record(q, 'ok', value, c.q.mode);
+          if (written && c.q.mode === 'write' && !hc.write) fb.fx.push('crit');
+          if (written) {
+            const g = this.synergy('goldOnWrite');
+            if (g) s.gold += g.value ?? 1;
           }
         }
+        fb.title = how === 'oracle' ? seq.feedback.oracle : this.rng.pick(seq.feedback.ok);
+      } else {
+        this.record(q, 'casi', value, c.q.mode);
+        fb.fx.push('casi');
+        fb.title = seq.feedback.casi;
+        fb.lines.push("Il manque un accent (ou un tilde) : la carte ne donne que la moitié de son effet. Ta série continue.");
       }
-      if (tr.has('vanish') && !c.vanishUsed) {
-        c.vanishUsed = true;
-        dmg = 0;
-        fb.fx.push('vanish');
-        fb.lines.push(`${e.name} disparaît : ton coup passe à travers ! La prochaine fois, ça touchera.`);
+      s.stats.cardsOk = (s.stats.cardsOk ?? 0) + 1;
+      // effets de la carte
+      let effects = hc.effects;
+      if (v === 'casi') effects = scaleEffects(effects, 0.5);
+      // réponse écrite non imposée : un petit bonus de dégâts (comme dans la version 1)
+      const writeBonus = written && v === 'ok' && !hc.write ? 1 + this.relicValue('writeBonus') + (this.relicCount('allWrite') ? this.relicValue('allWrite', 2) : 0) : 0;
+      const wasDouble = c.double;
+      c.double = false;
+      this.applyCard(effects, hc, fb, { writeBonus, name });
+      if (wasDouble) fb.lines.unshift('Mayas y aztecas : effet doublé !');
+      c.lastCard = hc.card.id;
+      if (c.juicio && c.shield > 0) {
+        c.shield = 0;
+        fb.fx.push('juicio');
+        fb.lines.push(`Juicio réussi : le bouclier de ${e.name} tombe !`);
       }
-      if (dmg > 0 && c.abanico > 0) {
-        if (c.q.mode === 'write' || how === 'oracle') {
-          const a = Math.min(c.abanico, dmg);
-          c.abanico -= a;
-          dmg -= a;
-          fb.lines.push(c.abanico > 0 ? `L'abanico se déchire (${c.abanico} restant).` : "L'abanico est brisé !");
-        } else {
-          dmg = 0;
-          fb.fx.push('abanico');
-          fb.lines.push("L'abanico bloque les réponses en QCM : écris pour le briser !");
+      const heal = this.synergy('healOnCorrect');
+      if (heal && s.hp < s.maxHp && v === 'ok') {
+        const h = Math.min(s.maxHp - s.hp, heal.value ?? 1);
+        s.hp += h;
+        fb.healed += h;
+        fb.fx.push('playerHeal');
+        fb.lines.push(`${heal.name} : +${h} PV.`);
+      }
+      if (freed) {
+        const h = Math.min(s.maxHp - s.hp, 1);
+        s.hp += h;
+        fb.healed += h;
+        if (h && !fb.fx.includes('playerHeal')) fb.fx.push('playerHeal');
+        fb.fx.push('alma');
+        fb.lines.push(`Alma liberada : tu avais raté cette question, tu la réussis.${h ? ' +1 PV.' : ''}`);
+      }
+      if (this.relicCount('luckyCards') && how !== 'oracle' && v === 'ok') {
+        s.luckyCount++;
+        const every = this.relicValue('luckyCards', 4) / this.relicCount('luckyCards');
+        if (s.luckyCount % every === 0) {
+          const id = this.gainRandom('aide');
+          if (id) fb.lines.push(`Lotería ! Tu gagnes : ${this.itemById.get(id)!.name}.`);
         }
       }
-      if (dmg > 0 && c.shield > 0) {
-        const a = Math.min(c.shield, dmg);
-        c.shield -= a;
-        dmg -= a;
-        fb.fx.push('shieldHit');
-        fb.lines.push(`Le bouclier absorbe ${a} dégât${a > 1 ? 's' : ''}.`);
-      }
-      c.hp = Math.max(0, c.hp - dmg);
-      fb.dmgToEnemy = dmg;
-      fb.fx.push(dmg > 0 ? 'enemyHit' : 'zero');
       const gold = 1 + this.relicValue('goldPerCorrect');
       s.gold += gold;
-      fb.title = how === 'oracle' ? seq.feedback.oracle : this.rng.pick(seq.feedback.ok);
-      fb.lines.unshift(`${e.name} perd ${dmg} PV${fb.combo ? ` (série de ${fb.combo})` : ''}${written && how !== 'oracle' ? `, ${c.q.mode === 'write' ? 'réponse écrite' : 'défi réussi'} : dégâts renforcés` : ''}. +${gold} 🪙`);
-    } else if (v === 'casi') {
-      this.record(q, 'casi', value, c.q.mode);
-      fb.fx.push('casi');
-      fb.title = seq.feedback.casi;
-      fb.lines.push("Il manque un accent (ou un tilde). Personne n'est blessé, ta série continue.");
+      fb.lines.push(`+${gold} 🪙`);
     } else {
       this.record(q, 'ko', value, c.q.mode);
       s.streak = 0;
       c.rowCorrect = 0;
       fb.title = how === 'timeout' ? seq.feedback.timeout : this.rng.pick(seq.feedback.ko);
-      if (how === 'timeout') fb.lines.push('Le temps est écoulé : cela compte comme une erreur.');
-      this.enemyStrikes(fb);
+      fb.fx.push('zero');
+      fb.lines.push(how === 'timeout' ? `Le temps est écoulé : ${name} ne fait rien.` : `${name} ne fait rien.`);
       if (tr.has('vanidad') && c.hp > 0) {
         c.hp = Math.min(c.maxHp, c.hp + 1);
         fb.lines.push(`${e.name} admire son reflet et récupère 1 PV.`);
       }
     }
+    // la carte quitte la main
+    if (hc.card.once) c.spent.push(hc.inst.uid);
+    else c.discard.push(hc.inst.uid);
 
-    // fin de tour
-    if (c.hp > 0) {
-      if (c.intent.kind === 'heal' && !c.canceled) {
-        const h = Math.min(c.maxHp - c.hp, c.intent.value ?? 2);
-        if (h > 0) {
-          c.hp += h;
-          fb.fx.push('heal');
-          fb.lines.push(`${e.name} se soigne de ${h} PV.`);
-        }
-      }
-      if (tr.has('crescendo')) {
-        if (c.rowCorrect >= 2) {
-          if (c.attackBonus > 0) fb.lines.push('Deux bonnes réponses de suite : la musique se calme.');
-          c.attackBonus = 0;
-          c.rowCorrect = 0;
-        } else c.attackBonus = Math.min(4, c.attackBonus + 1);
-      }
-    }
+    // l'ennemi agit
+    if (c.hp > 0) this.enemyActs(fb, v);
     if (s.poison > 0 && s.hp > 0 && c.hp > 0) {
       s.hp = Math.max(0, s.hp - 1);
       s.poison--;
       fb.dmgToPlayer += 1;
       if (!fb.fx.includes('playerHit')) fb.fx.push('poison');
-      fb.lines.push(`Le poison te fait perdre 1 PV (${s.poison} restant${s.poison > 1 ? 's' : ''}).`);
+      fb.enemyLines.push(`Le poison te fait perdre 1 PV (${s.poison} restant${s.poison > 1 ? 's' : ''}).`);
     }
     if (s.hp <= 0) this.tryRevive(fb);
     if (s.hp <= 0) fb.fx.push('playerDown');
@@ -1053,8 +846,129 @@ export class Game {
       }
     }
     c.fb = fb;
+    c.stage = 'resolve';
     this.commit();
     return fb;
+  }
+
+  /** Applique les effets d'une carte réussie. */
+  private applyCard(effects: CardEffect[], hc: HandCard, fb: Feedback, o: { writeBonus: number; name: string }, depth = 0) {
+    const s = this.state, c = s.combat!, e = this.enemy!, q = this.question!, tr = this.traits();
+    for (const ef of effects) {
+      switch (ef.do) {
+        case 'damage':
+        case 'strike': {
+          const times = ef.times ?? 1;
+          for (let k = 0; k < times; k++) {
+            let dmg = (ef.value ?? 0) + this.relicValue('damageBonus') + (k === 0 ? o.writeBonus : 0);
+            const th = this.streakThreshold;
+            if (k === 0 && s.streak >= th && dmg > 0) {
+              fb.fx.push('combo');
+              let bonus = (th === 2 ? 2 : 1) + this.relicValue('streakBonus');
+              if (this.synergy('streakDouble')) bonus *= 2;
+              dmg += bonus;
+              fb.combo = s.streak;
+            }
+            if (k === 0 && c.weakTheme && c.weakTheme === q.theme) {
+              dmg += 2;
+              fb.lines.push(`${e.name} est vulnérable à ce thème : +2 dégâts.`);
+            }
+            if (tr.has('ultimoBaile') && s.streak >= 3) dmg *= 2;
+            this.hitEnemy(dmg, ef.do === 'strike', fb);
+          }
+          break;
+        }
+        case 'streakBonus':
+          if (s.streak >= (ef.streak ?? 3) && (ef.value ?? 0) > 0) {
+            fb.lines.push(`Série de ${s.streak} : ${o.name} frappe plus fort (+${ef.value}).`);
+            this.hitEnemy(ef.value ?? 0, false, fb);
+          }
+          break;
+        case 'shield': {
+          const g = Math.min(SHIELD_MAX - c.pshield, ef.value ?? 0);
+          if (g > 0) {
+            c.pshield += g;
+            fb.shieldGained += g;
+            fb.fx.push('playerShield');
+            fb.lines.push(`Bouclier ${c.pshield} : il encaisse l'attaque de ce tour.`);
+          }
+          break;
+        }
+        case 'heal': {
+          const h = Math.min(s.maxHp - s.hp, ef.value ?? 0);
+          if (h > 0) {
+            s.hp += h;
+            fb.healed += h;
+            fb.fx.push('playerHeal');
+            fb.lines.push(`Tu récupères ${h} PV.`);
+          } else if ((ef.value ?? 0) > 0) fb.lines.push('Ta vie est déjà pleine.');
+          break;
+        }
+        case 'double':
+          c.double = true;
+          fb.lines.push('Ta prochaine carte aura un effet doublé.');
+          break;
+        case 'cleanse':
+          if (c.shield > 0 || c.abanico > 0) {
+            fb.fx.push('cleanse');
+            fb.lines.push(`${c.shield > 0 ? 'Le bouclier' : ''}${c.shield > 0 && c.abanico > 0 ? ' et ' : ''}${c.abanico > 0 ? "l'abanico" : ''} de ${e.name} se dissipe${c.shield > 0 && c.abanico > 0 ? 'nt' : ''}.`);
+            c.shield = 0;
+            c.abanico = 0;
+          } else fb.lines.push(`${e.name} n'avait rien à dissiper.`);
+          break;
+        case 'gold':
+          s.gold += ef.value ?? 0;
+          fb.lines.push(`+${ef.value} 🪙 (${o.name}).`);
+          break;
+        case 'repeatLast': {
+          const last = c.lastCard ? this.cardById.get(c.lastCard) : null;
+          if (last && depth === 0) {
+            fb.lines.push(`${o.name} imite ${last.name} !`);
+            const again = effectsOf(last).filter(x => x.do !== 'repeatLast' && x.do !== 'double');
+            this.applyCard(again, hc, fb, { writeBonus: 0, name: last.name }, depth + 1);
+          } else if (!last) fb.lines.push("Aucune carte à imiter pour l'instant.");
+          break;
+        }
+      }
+    }
+    if (fb.dmgToEnemy > 0 && !fb.fx.includes('enemyHit')) fb.fx.push('enemyHit');
+  }
+
+  /** Dégâts à l'ennemi, en passant par l'esquive, l'abanico et le bouclier (sauf « strike »). */
+  private hitEnemy(dmg: number, pierce: boolean, fb: Feedback) {
+    const c = this.state.combat!, e = this.enemy!, tr = this.traits();
+    if (dmg <= 0) return;
+    if (tr.has('vanish') && !c.vanishUsed) {
+      c.vanishUsed = true;
+      fb.fx.push('vanish');
+      fb.lines.push(`${e.name} disparaît : ton coup passe à travers ! La prochaine fois, ça touchera.`);
+      return;
+    }
+    if (!pierce && c.abanico > 0) {
+      if (c.q.mode === 'write' || fb.outcome === 'oracle') {
+        const a = Math.min(c.abanico, dmg);
+        c.abanico -= a;
+        dmg -= a;
+        fb.lines.push(c.abanico > 0 ? `L'abanico se déchire (${c.abanico} restant).` : "L'abanico est brisé !");
+      } else {
+        fb.fx.push('abanico');
+        fb.lines.push("L'abanico bloque les défis en QCM : joue une carte « a la pluma » ou écris pour le briser !");
+        return;
+      }
+    }
+    if (!pierce && dmg > 0 && c.shield > 0) {
+      const a = Math.min(c.shield, dmg);
+      c.shield -= a;
+      dmg -= a;
+      fb.fx.push('shieldHit');
+      fb.lines.push(`Le bouclier de ${e.name} absorbe ${a} dégât${a > 1 ? 's' : ''}.`);
+    }
+    if (dmg > 0) {
+      c.hp = Math.max(0, c.hp - dmg);
+      fb.dmgToEnemy += dmg;
+      if (pierce) fb.fx.push('strike');
+      fb.lines.push(`${e.name} perd ${dmg} PV.`);
+    }
   }
 
   private tryRevive(fb: { lines: string[]; alert?: string; fx?: Fx[] }) {
@@ -1066,46 +980,71 @@ export class Game {
     fb.alert = `La Calavera de la suerte te ramène sur le chemin avec ${s.hp} PV !`;
   }
 
-  private enemyStrikes(fb: Feedback) {
-    const s = this.state, c = s.combat!, e = this.enemy!, it = c.intent;
+  /** L'ennemi exécute son intention, quoi qu'ait fait l'élève. */
+  private enemyActs(fb: Feedback, v: Verdict) {
+    const s = this.state, c = s.combat!, e = this.enemy!, it = c.intent, tr = this.traits();
     if (c.canceled) {
       fb.fx.push('canceled');
-      fb.lines.push(`L'encens apaise ${e.name} : il ne fait rien ce tour-ci.`);
+      fb.enemyLines.push(`L'encens apaise ${e.name} : il ne fait rien ce tour-ci.`);
       return;
     }
     const a = s.ascension;
     const ascAtk = (a >= 4 && e.kind === 'elite' ? 1 : 0) + (a >= 10 && e.kind === 'final' ? 1 : 0);
-    let dmg = (it.kind === 'attack' ? it.value ?? e.attack : e.attack) + c.attackBonus + ascAtk + (this.relicCount('slowTime') ? 1 : 0);
-    if (c.juicio) {
-      dmg *= 2;
-      fb.lines.push('Juicio : la sentence est doublée !');
-    }
-    const shieldId = Object.keys(s.inv).find(id => s.inv[id] > 0 && this.itemById.get(id)?.effect === 'autoShield');
-    if (shieldId) {
-      s.inv[shieldId]--;
-      fb.fx.push('blocked');
-      fb.lines.push(`Ton ${this.itemById.get(shieldId)!.name} bloque l'attaque de ${e.name}.`);
-      if (this.isUpgraded(shieldId)) {
-        c.hp = Math.max(0, c.hp - 2);
-        fb.dmgToEnemy += 2;
-        fb.fx.push('reflect');
-        fb.lines.push(`Il renvoie 2 dégâts à ${e.name} !`);
+    const attacks = it.kind === 'attack' || it.kind === 'rush' || it.kind === 'fog' || it.kind === 'listen';
+    if (attacks) {
+      let dmg = (it.kind === 'attack' ? it.value ?? e.attack : e.attack) + c.attackBonus + ascAtk + (this.relicCount('slowTime') ? 1 : 0);
+      if (c.juicio && v === 'ko') {
+        dmg *= 2;
+        fb.enemyLines.push('Juicio raté : la sentence est doublée !');
       }
-    } else if (this.relicCount('firstErrorShield') && !c.firstErrorUsed) {
-      c.firstErrorUsed = true;
-      fb.fx.push('mask');
-      fb.lines.push('Ta Máscara encaisse la première erreur du combat : aucun dégât.');
-    } else {
-      s.hp = Math.max(0, s.hp - dmg);
-      fb.dmgToPlayer += dmg;
-      fb.fx.push('playerHit');
-      fb.lines.push(`${e.name} t'inflige ${dmg} dégât${dmg > 1 ? 's' : ''}.`);
+      const shieldId = Object.keys(s.inv).find(id => s.inv[id] > 0 && this.itemById.get(id)?.effect === 'autoShield');
+      if (c.pshield >= dmg) {
+        c.pshield -= dmg;
+        fb.fx.push('blocked');
+        fb.enemyLines.push(`${e.name} attaque (${dmg}) : ton bouclier encaisse tout.`);
+      } else if (shieldId) {
+        s.inv[shieldId]--;
+        fb.fx.push('blocked');
+        fb.enemyLines.push(`Ton ${this.itemById.get(shieldId)!.name} bloque l'attaque de ${e.name}.`);
+        if (this.isUpgraded(shieldId)) {
+          c.hp = Math.max(0, c.hp - 2);
+          fb.dmgToEnemy += 2;
+          fb.fx.push('reflect');
+          fb.enemyLines.push(`Il renvoie 2 dégâts à ${e.name} !`);
+        }
+      } else if (this.relicCount('firstErrorShield') && !c.firstErrorUsed) {
+        c.firstErrorUsed = true;
+        fb.fx.push('mask');
+        fb.enemyLines.push('Ta Máscara encaisse la première attaque du combat : aucun dégât.');
+      } else {
+        const through = dmg - c.pshield;
+        if (c.pshield > 0) fb.enemyLines.push(`Ton bouclier encaisse ${c.pshield} dégât${c.pshield > 1 ? 's' : ''}.`);
+        c.pshield = 0;
+        s.hp = Math.max(0, s.hp - through);
+        fb.dmgToPlayer += through;
+        fb.fx.push('playerHit');
+        fb.enemyLines.push(`${e.name} t'inflige ${through} dégât${through > 1 ? 's' : ''}.`);
+      }
     }
-    if (it.kind === 'steal' && s.gold > 0) {
+    if (it.kind === 'heal') {
+      const h = Math.min(c.maxHp - c.hp, it.value ?? 2);
+      if (h > 0) {
+        c.hp += h;
+        fb.fx.push('heal');
+        fb.enemyLines.push(`${e.name} se soigne de ${h} PV.`);
+      } else fb.enemyLines.push(`${e.name} mange, mais sa vie est déjà pleine.`);
+    }
+    if (it.kind === 'shield') {
+      fb.fx.push('enemyShield');
+      fb.enemyLines.push(`${e.name} prie : son bouclier est à ${c.shield}.`);
+    }
+    if (it.kind === 'steal') {
       const g = Math.min(s.gold, it.value ?? 2);
-      s.gold -= g;
-      fb.fx.push('steal');
-      fb.lines.push(`${e.name} te vole ${g} 🪙.`);
+      if (g > 0) {
+        s.gold -= g;
+        fb.fx.push('steal');
+        fb.enemyLines.push(`${e.name} te vole ${g} 🪙.`);
+      } else fb.enemyLines.push(`${e.name} fouille tes poches : rien à voler !`);
     }
     if (it.kind === 'stealItem') {
       const owned = Object.keys(s.inv).filter(id => s.inv[id] > 0);
@@ -1113,13 +1052,20 @@ export class Game {
         const id = this.rng.pick(owned);
         s.inv[id]--;
         fb.fx.push('stealItem');
-        fb.lines.push(`${e.name} te vole un pouvoir : ${this.itemById.get(id)?.name ?? id}.`);
-      }
+        fb.enemyLines.push(`${e.name} te vole un pouvoir : ${this.itemById.get(id)?.name ?? id}.`);
+      } else fb.enemyLines.push(`${e.name} fouille ta bolsa : elle est vide.`);
     }
     if (it.kind === 'poison') {
       s.poison += it.value ?? 3;
       fb.fx.push('poison');
-      fb.lines.push(`Tu es empoisonné·e : −1 PV par question pendant ${s.poison} questions.`);
+      fb.enemyLines.push(`Tu es empoisonné·e : −1 PV par tour pendant ${s.poison} tours.`);
+    }
+    if (tr.has('crescendo')) {
+      if (c.rowCorrect >= 2) {
+        if (c.attackBonus > 0) fb.enemyLines.push('Deux bonnes réponses de suite : la musique se calme.');
+        c.attackBonus = 0;
+        c.rowCorrect = 0;
+      } else c.attackBonus = Math.min(4, c.attackBonus + 1);
     }
   }
 
@@ -1135,10 +1081,10 @@ export class Game {
     });
   }
 
-  /** Passe à la suite après le retour (feedback). */
+  /** Passe à la suite après le résultat du tour. */
   proceed() {
     const s = this.state, c = s.combat;
-    if (s.screen !== 'combat' || !c || !c.fb) return;
+    if (s.screen !== 'combat' || !c || c.stage !== 'resolve' || !c.fb) return;
     if (s.hp <= 0) return this.end(false);
     if (c.hp <= 0) return this.winFight();
     this.nextTurn();
@@ -1159,12 +1105,103 @@ export class Game {
       s.hp = Math.min(s.maxHp, s.hp + Math.ceil(s.maxHp * 0.25));
       s.offer = this.rollOffer('jefe');
       s.offerKind = 'jefe';
+      s.cardOffer = null;
     } else {
       s.offerKind = e.kind === 'elite' ? 'elite' : 'normal';
-      s.offer = this.rollOffer(s.offerKind);
+      s.offer = e.kind === 'elite' ? this.rollOffer('elite') : null;
+      s.cardOffer = this.rollCards(3).map(id => ({ id }));
     }
     s.screen = 'reward';
     s.combat = null;
+    this.commit();
+  }
+
+  /* ======================= Cartes : récompenses, tianguis, ofrenda ======================= */
+
+  /** Tire n cartes différentes à proposer. Les Saberes déjà possédés ne sont pas reproposés. */
+  private rollCards(n: number): string[] {
+    const owned = new Set(this.state.deck.map(d => d.id));
+    const pool = this.content.cards.filter(c => (c.family === 'golpe' || c.family === 'saber') && !(c.once && owned.has(c.id)));
+    const out: string[] = [];
+    let rest = pool;
+    while (out.length < n && rest.length) {
+      const c = this.rng.weighted(rest, x => RARITY_WEIGHT[x.rarity]);
+      out.push(c.id);
+      rest = rest.filter(x => x.id !== c.id);
+    }
+    return out;
+  }
+
+  private addCard(id: string, up?: CardInst['up']): CardInst | null {
+    if (!this.cardById.has(id)) return null;
+    const s = this.state;
+    const inst: CardInst = { uid: s.nextUid++, id };
+    if (up) inst.up = up;
+    s.deck.push(inst);
+    return inst;
+  }
+
+  /** Récompense : prendre la carte n°i (ou passer si i < 0). */
+  takeCard(i: number) {
+    const s = this.state;
+    if (s.screen !== 'reward' || !s.cardOffer) return;
+    if (i >= 0 && s.cardOffer[i]) this.addCard(s.cardOffer[i].id);
+    s.cardOffer = null;
+    if (!s.offer) this.toMap();
+    this.commit();
+  }
+
+  /** Récompense : prendre l'objet n°i (ou passer si i < 0). */
+  take(i: number) {
+    const s = this.state;
+    if (s.screen !== 'reward' || !s.offer) return;
+    if (i >= 0 && s.offer[i]) this.gain(s.offer[i].id);
+    s.offer = null;
+    if (s.offerKind === 'jefe') this.nextAct();
+    else if (!s.cardOffer) this.toMap();
+    this.commit();
+  }
+
+  /** Tianguis : acheter la carte n°i. */
+  buyCard(i: number): boolean {
+    const s = this.state, o = s.cardOffer?.[i];
+    const card = o && this.cardById.get(o.id);
+    if (s.screen !== 'shop' || !o || o.sold || !card || s.gold < card.price) return false;
+    s.gold -= card.price;
+    this.addCard(card.id);
+    o.sold = true;
+    this.commit();
+    return true;
+  }
+
+  /** Tianguis : retirer une carte de la baraja (il en faut au moins 5). */
+  removeCard(uid: number): boolean {
+    const s = this.state;
+    if (s.screen !== 'shop' || s.gold < REMOVE_CARD_PRICE || s.deck.length <= 5 || !s.deck.some(c => c.uid === uid)) return false;
+    s.gold -= REMOVE_CARD_PRICE;
+    s.deck = s.deck.filter(c => c.uid !== uid);
+    this.commit();
+    return true;
+  }
+
+  /** Cartes qui peuvent encore être améliorées. */
+  upgradableCards(): CardInst[] {
+    return this.state.deck.filter(c => !c.up && this.cardById.has(c.id));
+  }
+
+  /** Ofrenda : améliorer une carte, « plus forte » ou « a la pluma » (défi à l'écrit, effet doublé). */
+  restUpgradeCard(uid: number, up: 'fuerte' | 'pluma') {
+    const s = this.state;
+    const inst = s.deck.find(c => c.uid === uid);
+    if (s.screen !== 'rest' || !s.rest || s.rest.result || !inst || inst.up) return;
+    if (up === 'pluma' && this.settings.writeFactor <= 0) return;
+    const card = this.cardById.get(inst.id)!;
+    if (up === 'fuerte' && !card.upgrade) return;
+    inst.up = up;
+    s.rest.result = {
+      text: `Tu déposes ${card.name} sur la ofrenda. La carte brille…`,
+      lines: [up === 'fuerte' ? `${instName(card, inst)} : ${this.describe(effectsOf(card, inst))}` : `${instName(card, inst)} : le défi se fait à l'écrit, l'effet est doublé (${this.describe(scaleEffects(card.effects, 2))}).`],
+    };
     this.commit();
   }
 
@@ -1228,16 +1265,6 @@ export class Game {
     const id = this.rng.weighted(ids, x => RARITY_WEIGHT[this.itemById.get(x)!.rarity]);
     this.gain(id);
     return id;
-  }
-
-  /** Récompense : prendre l'objet n°i (ou passer si i < 0). */
-  take(i: number) {
-    const s = this.state;
-    if (s.screen !== 'reward' || !s.offer) return;
-    if (i >= 0 && s.offer[i]) this.gain(s.offer[i].id);
-    if (s.offerKind === 'jefe') this.nextAct();
-    else this.toMap();
-    this.commit();
   }
 
   buy(i: number): boolean {
@@ -1455,7 +1482,15 @@ export class Game {
             const id = this.rng.pick(ids);
             s.upgrades[id] = true;
             out.push(this.itemById.get(id)!.upgrade ?? `${this.itemById.get(id)!.name} amélioré`);
-          } else out.push(...this.applyEffects([{ type: 'gold', value: 4 }]));
+          } else {
+            // pas d'aide à améliorer : une carte le devient
+            const cards = this.upgradableCards().filter(c => this.cardById.get(c.id)?.upgrade);
+            if (cards.length) {
+              const inst = this.rng.pick(cards);
+              inst.up = 'fuerte';
+              out.push(`${instName(this.cardById.get(inst.id)!, inst)} : ${this.describe(effectsOf(this.cardById.get(inst.id)!, inst))}`);
+            } else out.push(...this.applyEffects([{ type: 'gold', value: 4 }]));
+          }
           break;
         }
         case 'fight':
@@ -1513,7 +1548,10 @@ export class Game {
         break;
       case 'swap':
         consume();
-        this.ask(true, up);
+        if (c!.stage === 'hand') {
+          // Cambio en main : une nouvelle main
+          this.deal();
+        } else this.ask(this.playedCard, true, up);
         this.commit();
         return true;
       case 'oracle':
@@ -1548,6 +1586,32 @@ export class Game {
     const auto = isChoice(q) || q.type === 'ordre' ? autoHint(ans) : '';
     if (hintId && this.isUpgraded(hintId)) return leaks ? auto : `${q.explanation} ${auto}`.trim();
     return leaks ? auto : q.explanation;
+  }
+
+  /** Ce que l'ennemi annonce pour ce tour : phrase en espagnol, icône, détail en français. */
+  intentInfo(): { es: string; ico: string; text: string; sub: string; dmg: number } {
+    const c = this.state.combat!, e = this.enemy!, it = c.intent;
+    const t = this.content.sequence.intents[it.kind] ?? { es: 'Está preparando algo', ico: '❔' };
+    const a = this.state.ascension;
+    const ascAtk = (a >= 4 && e.kind === 'elite' ? 1 : 0) + (a >= 10 && e.kind === 'final' ? 1 : 0);
+    const base = e.attack + c.attackBonus + ascAtk + (this.relicCount('slowTime') ? 1 : 0);
+    const dmg = (it.kind === 'attack' ? (it.value ?? e.attack) + c.attackBonus + ascAtk + (this.relicCount('slowTime') ? 1 : 0) : base);
+    switch (it.kind) {
+      case 'attack': return { es: t.es, ico: t.ico, dmg, text: `Attaque ${dmg}`, sub: c.juicio ? `Juicio : si tu rates, ${dmg * 2} dégâts ; si tu réussis, son bouclier tombe` : `${dmg} dégâts à la fin du tour, sauf bouclier` };
+      case 'shield': return { es: t.es, ico: t.ico, dmg: 0, text: `Bouclier +${it.value ?? 2}`, sub: 'il se protège : pas d’attaque ce tour' };
+      case 'heal': return { es: t.es, ico: t.ico, dmg: 0, text: `Soin +${it.value ?? 2}`, sub: 'il se soigne à la fin du tour : pas d’attaque' };
+      case 'steal': return { es: t.es, ico: t.ico, dmg: 0, text: `Vol de ${it.value ?? 2} monedas`, sub: 'pas d’attaque ce tour' };
+      case 'rush': return { es: t.es, ico: t.ico, dmg, text: `Attaque ${dmg} · chrono −${it.value ?? 5} s`, sub: 'le défi est plus court' };
+      case 'poison': return { es: t.es, ico: t.ico, dmg: 0, text: `Poison ${it.value ?? 3}`, sub: '−1 PV par tour, pas d’attaque ce tour' };
+      case 'fog': return { es: t.es, ico: t.ico, dmg, text: `Attaque ${dmg} · brouillard`, sub: 'tes aides sont bloquées ce tour' };
+      case 'stealItem': return { es: t.es, ico: t.ico, dmg: 0, text: 'Vol d’une aide', sub: 'pas d’attaque ce tour' };
+      case 'listen': return { es: t.es, ico: t.ico, dmg, text: `Attaque ${dmg} · canto`, sub: 'le défi est à écouter' };
+    }
+  }
+
+  /** Dégâts qu'une carte de la main ferait à l'ennemi maintenant (pour les infobulles et le robot). */
+  previewDamage(hc: HandCard): number {
+    return damageOf(hc.effects, this.state.streak) + (damageOf(hc.effects) > 0 ? this.relicValue('damageBonus') : 0);
   }
 
   /* ======================= Fin ======================= */

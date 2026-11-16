@@ -245,6 +245,62 @@ export const ItemSchema = z
   .strict();
 export type Item = z.infer<typeof ItemSchema>;
 
+/* ---------- Cartes de lotería (le combat de la version 2) ---------- */
+
+/** Familles de cartes : une par thème de la banque. Hechizo et Mirada arrivent aux étapes suivantes. */
+export const FamilySchema = z.enum(['golpe', 'hechizo', 'mirada', 'saber']);
+export type Family = z.infer<typeof FamilySchema>;
+
+/**
+ * Un effet de carte, décrit en données.
+ * damage : dégâts à l'ennemi (times = plusieurs coups) · shield : bouclier du joueur · heal : soin du joueur ·
+ * streakBonus : dégâts en plus si la série atteint `streak` · repeatLast : rejoue l'effet de la dernière carte jouée ·
+ * strike : dégâts qui traversent bouclier et abanico (une âme amie frappe) · double : la prochaine carte a un effet doublé ·
+ * cleanse : dissipe bouclier et abanico de l'ennemi · gold : monedas.
+ */
+export const CardEffectSchema = z
+  .object({
+    do: z.enum(['damage', 'shield', 'heal', 'streakBonus', 'repeatLast', 'strike', 'double', 'cleanse', 'gold']),
+    value: z.number().int().nonnegative().optional(),
+    times: z.number().int().positive().optional(),
+    streak: z.number().int().positive().optional(),
+  })
+  .strict();
+export type CardEffect = z.infer<typeof CardEffectSchema>;
+
+export const CardSchema = z
+  .object({
+    id: idSchema,
+    family: FamilySchema,
+    /** Nom en espagnol (c'est du contenu). */
+    name: z.string().min(1),
+    emoji: z.string(),
+    /** Thème de la banque où la carte tire son défi. */
+    theme: z.string().min(1),
+    /** Niveau imposé du défi (sinon celui de l'acte). */
+    level: LevelSchema.optional(),
+    effects: z.array(CardEffectSchema).min(1),
+    /** Version « plus forte » (amélioration à la Ofrenda). */
+    upgrade: z.array(CardEffectSchema).min(1).optional(),
+    /** Une seule fois par combat (Saberes). */
+    once: z.boolean().optional(),
+    /** Description en français, pour l'élève. */
+    description: z.string().min(1),
+    /** Texte tiré des documents (Saberes) : la phrase que la carte illustre. */
+    quote: z.string().optional(),
+    /** Prix au tianguis. */
+    price: z.number().int().nonnegative().default(5),
+    rarity: z.enum(['comun', 'rara', 'legendaria']).default('comun'),
+    /** Numéro de carte de lotería (album). */
+    card: z.number().int().min(1).max(99).optional(),
+  })
+  .strict();
+export type Card = z.infer<typeof CardSchema>;
+
+/** Une carte possédée : un identifiant unique dans la partie, et son amélioration éventuelle. */
+export const CardInstSchema = z.object({ uid: z.number().int(), id: z.string(), up: z.enum(['fuerte', 'pluma']).optional() }).strict();
+export type CardInst = z.infer<typeof CardInstSchema>;
+
 /* ---------- Synergies ---------- */
 
 export const SynergySchema = z
@@ -346,8 +402,17 @@ export const SequenceSchema = z
     notions: z.array(z.object({ id: idSchema, label: z.string() }).strict()),
     sources: z.array(z.object({ id: idSchema, title: z.string(), file: z.string() }).strict()),
     player: z
-      .object({ hp: z.number().int().positive(), startItems: z.record(z.string(), z.number().int().nonnegative()) })
+      .object({
+        hp: z.number().int().positive(),
+        startItems: z.record(z.string(), z.number().int().nonnegative()),
+        /** Baraja de départ (identifiants de cartes, répétitions permises). */
+        deck: z.array(z.string()).min(5),
+        /** Cartes en main à chaque tour. */
+        hand: z.number().int().min(2).max(5).default(3),
+      })
       .strict(),
+    /** Ce que dit l'ennemi quand il prépare chaque intention (ESTAR + gérondif), et son icône. */
+    intents: z.record(z.string(), z.object({ es: z.string().min(1), ico: z.string().min(1) }).strict()),
     acts: z
       .array(
         z
@@ -391,6 +456,8 @@ export const SequenceSchema = z
                 hp: z.number().int().optional(),
                 items: z.record(z.string(), z.number().int()).optional(),
                 relics: z.record(z.string(), z.number().int()).optional(),
+                /** Cartes ajoutées à la baraja de départ. */
+                cards: z.array(z.object({ id: z.string(), up: z.enum(['fuerte', 'pluma']).optional() }).strict()).optional(),
                 writeShare: z.number().optional(),
                 restHeal: z.number().min(0).max(1).optional(),
               })
@@ -429,6 +496,7 @@ export interface Content {
   questions: Question[];
   enemies: Enemy[];
   items: Item[];
+  cards: Card[];
   events: GameEvent[];
   synergies: Synergy[];
   scenes: Scenes;

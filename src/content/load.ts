@@ -8,6 +8,7 @@ const SEQUENCE_ID = 'dia-de-muertos';
 const sequences = import.meta.glob('../../content/sequences/*/sequence.json', { eager: true, import: 'default' });
 const enemies = import.meta.glob('../../content/sequences/*/enemies.json', { eager: true, import: 'default' });
 const items = import.meta.glob('../../content/sequences/*/items.json', { eager: true, import: 'default' });
+const cards = import.meta.glob('../../content/sequences/*/cartas.json', { eager: true, import: 'default' });
 const events = import.meta.glob('../../content/sequences/*/events.json', { eager: true, import: 'default' });
 const synergies = import.meta.glob('../../content/sequences/*/synergies.json', { eager: true, import: 'default' });
 const scenes = import.meta.glob('../../content/sequences/*/scenes.json', { eager: true, import: 'default' });
@@ -19,6 +20,7 @@ export function rawContent(id = SEQUENCE_ID): RawContent {
     sequence: sequences[`${base}sequence.json`],
     enemies: enemies[`${base}enemies.json`],
     items: items[`${base}items.json`],
+    cards: cards[`${base}cartas.json`] ?? [],
     events: events[`${base}events.json`] ?? [],
     synergies: synergies[`${base}synergies.json`] ?? [],
     scenes: scenes[`${base}scenes.json`] ?? { decors: [], objects: [] },

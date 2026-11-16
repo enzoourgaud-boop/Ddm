@@ -81,7 +81,7 @@ export const profiles = {
   },
   run(id: string): RunState | null {
     const r = storage.get<RunState | null>(k(id, 'run'), null);
-    return r && r.v === 3 && r.screen !== 'over' ? r : null;
+    return r && r.v === 4 && r.screen !== 'over' ? r : null;
   },
   saveRun(id: string, r: RunState) {
     storage.set(k(id, 'run'), r);

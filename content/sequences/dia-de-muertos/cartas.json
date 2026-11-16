@@ -1,0 +1,409 @@
+[
+  {
+    "id": "calavera",
+    "family": "golpe",
+    "name": "La Calavera",
+    "emoji": "💀",
+    "theme": "vocabulario",
+    "effects": [
+      {
+        "do": "damage",
+        "value": 4
+      }
+    ],
+    "upgrade": [
+      {
+        "do": "damage",
+        "value": 6
+      }
+    ],
+    "description": "4 dégâts.",
+    "price": 4
+  },
+  {
+    "id": "flor",
+    "family": "golpe",
+    "name": "La Flor de Cempasúchil",
+    "emoji": "🌼",
+    "theme": "vocabulario",
+    "effects": [
+      {
+        "do": "damage",
+        "value": 3
+      },
+      {
+        "do": "heal",
+        "value": 1
+      }
+    ],
+    "upgrade": [
+      {
+        "do": "damage",
+        "value": 4
+      },
+      {
+        "do": "heal",
+        "value": 2
+      }
+    ],
+    "description": "3 dégâts, et tu récupères 1 PV.",
+    "price": 4
+  },
+  {
+    "id": "pan",
+    "family": "golpe",
+    "name": "El Pan de Muerto",
+    "emoji": "🍞",
+    "theme": "vocabulario",
+    "effects": [
+      {
+        "do": "damage",
+        "value": 2
+      },
+      {
+        "do": "shield",
+        "value": 3
+      }
+    ],
+    "upgrade": [
+      {
+        "do": "damage",
+        "value": 3
+      },
+      {
+        "do": "shield",
+        "value": 4
+      }
+    ],
+    "description": "2 dégâts et un bouclier de 3.",
+    "price": 4
+  },
+  {
+    "id": "vela",
+    "family": "golpe",
+    "name": "La Vela",
+    "emoji": "🕯️",
+    "theme": "vocabulario",
+    "effects": [
+      {
+        "do": "shield",
+        "value": 5
+      }
+    ],
+    "upgrade": [
+      {
+        "do": "shield",
+        "value": 7
+      }
+    ],
+    "description": "Bouclier de 5 : il encaisse les prochains dégâts.",
+    "price": 4
+  },
+  {
+    "id": "guitarra",
+    "family": "golpe",
+    "name": "La Guitarra",
+    "emoji": "🎸",
+    "theme": "vocabulario",
+    "effects": [
+      {
+        "do": "damage",
+        "value": 2,
+        "times": 2
+      }
+    ],
+    "upgrade": [
+      {
+        "do": "damage",
+        "value": 2,
+        "times": 3
+      }
+    ],
+    "description": "2 dégâts, deux fois.",
+    "price": 5
+  },
+  {
+    "id": "trompeta",
+    "family": "golpe",
+    "name": "La Trompeta",
+    "emoji": "🎺",
+    "theme": "vocabulario",
+    "effects": [
+      {
+        "do": "damage",
+        "value": 3
+      },
+      {
+        "do": "streakBonus",
+        "value": 3,
+        "streak": 3
+      }
+    ],
+    "upgrade": [
+      {
+        "do": "damage",
+        "value": 4
+      },
+      {
+        "do": "streakBonus",
+        "value": 4,
+        "streak": 3
+      }
+    ],
+    "description": "3 dégâts, +3 si ta série est de 3 ou plus.",
+    "price": 5
+  },
+  {
+    "id": "esqueleto",
+    "family": "golpe",
+    "name": "El Esqueleto",
+    "emoji": "🦴",
+    "theme": "vocabulario",
+    "effects": [
+      {
+        "do": "damage",
+        "value": 5
+      }
+    ],
+    "upgrade": [
+      {
+        "do": "damage",
+        "value": 7
+      }
+    ],
+    "description": "5 dégâts. Le défi est un peu plus difficile.",
+    "level": 2,
+    "price": 6,
+    "rarity": "rara"
+  },
+  {
+    "id": "disfraz",
+    "family": "golpe",
+    "name": "El Disfraz",
+    "emoji": "🎭",
+    "theme": "vocabulario",
+    "effects": [
+      {
+        "do": "damage",
+        "value": 3
+      },
+      {
+        "do": "repeatLast"
+      }
+    ],
+    "upgrade": [
+      {
+        "do": "damage",
+        "value": 4
+      },
+      {
+        "do": "repeatLast"
+      }
+    ],
+    "description": "3 dégâts, puis rejoue l'effet de la dernière carte jouée.",
+    "price": 6,
+    "rarity": "rara"
+  },
+  {
+    "id": "cruz",
+    "family": "golpe",
+    "name": "La Cruz Florida",
+    "emoji": "✝️",
+    "theme": "vocabulario",
+    "effects": [
+      {
+        "do": "shield",
+        "value": 3
+      },
+      {
+        "do": "heal",
+        "value": 2
+      }
+    ],
+    "upgrade": [
+      {
+        "do": "shield",
+        "value": 4
+      },
+      {
+        "do": "heal",
+        "value": 4
+      }
+    ],
+    "description": "Bouclier de 3 et tu récupères 2 PV.",
+    "price": 5
+  },
+  {
+    "id": "alebrije",
+    "family": "golpe",
+    "name": "El Alebrije",
+    "emoji": "🦎",
+    "theme": "vocabulario",
+    "effects": [
+      {
+        "do": "damage",
+        "value": 2
+      },
+      {
+        "do": "gold",
+        "value": 2
+      }
+    ],
+    "upgrade": [
+      {
+        "do": "damage",
+        "value": 3
+      },
+      {
+        "do": "gold",
+        "value": 3
+      }
+    ],
+    "description": "2 dégâts et 2 monedas.",
+    "price": 5
+  },
+  {
+    "id": "tradicion",
+    "family": "saber",
+    "name": "La tradición",
+    "emoji": "📜",
+    "theme": "cultura",
+    "once": true,
+    "effects": [
+      {
+        "do": "strike",
+        "value": 8
+      }
+    ],
+    "upgrade": [
+      {
+        "do": "strike",
+        "value": 11
+      }
+    ],
+    "description": "Une âme amie revient frapper : 8 dégâts qui traversent le bouclier. Une fois par combat.",
+    "quote": "La tradición dice que en estos días los muertos vuelven a visitar a sus familiares.",
+    "price": 8,
+    "rarity": "rara"
+  },
+  {
+    "id": "fiesta",
+    "family": "saber",
+    "name": "La fiesta de bienvenida",
+    "emoji": "🎉",
+    "theme": "cultura",
+    "once": true,
+    "effects": [
+      {
+        "do": "heal",
+        "value": 6
+      },
+      {
+        "do": "shield",
+        "value": 6
+      }
+    ],
+    "upgrade": [
+      {
+        "do": "heal",
+        "value": 9
+      },
+      {
+        "do": "shield",
+        "value": 8
+      }
+    ],
+    "description": "+6 PV et un bouclier de 6. Une fois par combat.",
+    "quote": "Los vivos preparan una fiesta de bienvenida.",
+    "price": 8,
+    "rarity": "rara"
+  },
+  {
+    "id": "mayas-aztecas",
+    "family": "saber",
+    "name": "Mayas y aztecas",
+    "emoji": "🏛️",
+    "theme": "cultura",
+    "once": true,
+    "effects": [
+      {
+        "do": "double"
+      }
+    ],
+    "upgrade": [
+      {
+        "do": "double"
+      },
+      {
+        "do": "shield",
+        "value": 3
+      }
+    ],
+    "description": "La prochaine carte a un effet doublé. Une fois par combat.",
+    "quote": "Es una celebración que tiene su origen en las tradiciones mayas y aztecas.",
+    "price": 8,
+    "rarity": "rara"
+  },
+  {
+    "id": "cementerio",
+    "family": "saber",
+    "name": "El cementerio",
+    "emoji": "⚰️",
+    "theme": "cultura",
+    "once": true,
+    "effects": [
+      {
+        "do": "damage",
+        "value": 3
+      },
+      {
+        "do": "heal",
+        "value": 3
+      }
+    ],
+    "upgrade": [
+      {
+        "do": "damage",
+        "value": 5
+      },
+      {
+        "do": "heal",
+        "value": 4
+      }
+    ],
+    "description": "3 dégâts et +3 PV : les fleurs des tombes te rendent des forces. Une fois par combat.",
+    "quote": "La gente visita los cementerios para rezar a los difuntos y decora las tumbas con flores de cempasúchil.",
+    "price": 8,
+    "rarity": "rara"
+  },
+  {
+    "id": "catrina-posada",
+    "family": "saber",
+    "name": "La Catrina de Posada",
+    "emoji": "🎩",
+    "theme": "cultura",
+    "once": true,
+    "effects": [
+      {
+        "do": "cleanse"
+      },
+      {
+        "do": "damage",
+        "value": 3
+      }
+    ],
+    "upgrade": [
+      {
+        "do": "cleanse"
+      },
+      {
+        "do": "damage",
+        "value": 6
+      }
+    ],
+    "description": "Dissipe le bouclier et l'abanico de l'ennemi, puis 3 dégâts. Une fois par combat.",
+    "quote": "Fue creada por el caricaturista mexicano José Guadalupe Posada.",
+    "price": 8,
+    "rarity": "legendaria"
+  }
+]

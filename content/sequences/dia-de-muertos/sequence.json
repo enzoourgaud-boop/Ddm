@@ -140,12 +140,23 @@
     }
   ],
   "player": {
-    "hp": 15,
+    "hp": 30,
     "startItems": {
       "traductor": 1,
       "tijeras": 1,
       "chuleta": 1
-    }
+    },
+    "deck": [
+      "calavera",
+      "calavera",
+      "flor",
+      "flor",
+      "pan",
+      "pan",
+      "vela",
+      "guitarra"
+    ],
+    "hand": 3
   },
   "acts": [
     {
@@ -287,12 +298,20 @@
       "name": "Valentina",
       "title": "la ofrendera",
       "emoji": "🕯️",
-      "description": "Elle connaît chaque recoin de la ofrenda. Commence avec un Chocolate en plus ; la Ofrenda la soigne davantage (40 %).",
+      "description": "Elle connaît chaque recoin de la ofrenda. Commence avec un Chocolate, La Cruz Florida et La fiesta de bienvenida ; la Ofrenda la soigne davantage (40 %).",
       "bonus": {
         "items": {
           "chocolate": 1
         },
-        "restHeal": 0.4
+        "restHeal": 0.4,
+        "cards": [
+          {
+            "id": "cruz"
+          },
+          {
+            "id": "fiesta"
+          }
+        ]
       },
       "palette": {
         "H": "#ff9f1c",
@@ -311,12 +330,20 @@
       "name": "Mateo",
       "title": "el trompetista",
       "emoji": "🎺",
-      "description": "Il garde le rythme. Commence avec les Maracas (série dès 2 bonnes réponses) et 3 PV de plus.",
+      "description": "Il garde le rythme. Commence avec les Maracas (série dès 2 bonnes réponses), La Trompeta, La tradición et 3 PV de plus.",
       "bonus": {
         "relics": {
           "maracas": 1
         },
-        "hp": 3
+        "hp": 3,
+        "cards": [
+          {
+            "id": "trompeta"
+          },
+          {
+            "id": "tradicion"
+          }
+        ]
       },
       "palette": {
         "H": "#ffd23f",
@@ -337,12 +364,21 @@
       "name": "Luz",
       "title": "la poeta",
       "emoji": "✒️",
-      "description": "Elle écrit des vers pour les défunts. Commence avec la Pluma ; davantage de questions à écrire (qui frappent plus fort).",
+      "description": "Elle écrit des vers pour les défunts. Commence avec la Pluma, une Calavera « a la pluma » (défi à l'écrit, effet doublé) et Mayas y aztecas ; davantage de défis à écrire.",
       "bonus": {
         "relics": {
           "pluma": 1
         },
-        "writeShare": 0.15
+        "writeShare": 0.15,
+        "cards": [
+          {
+            "id": "calavera",
+            "up": "pluma"
+          },
+          {
+            "id": "mayas-aztecas"
+          }
+        ]
       },
       "palette": {
         "H": "#9b6cff",
@@ -358,5 +394,43 @@
         "label": "Gagner une partie"
       }
     }
-  ]
+  ],
+  "intents": {
+    "attack": {
+      "es": "Está preparando un ataque",
+      "ico": "⚔️"
+    },
+    "shield": {
+      "es": "Está rezando",
+      "ico": "🛡️"
+    },
+    "heal": {
+      "es": "Está comiendo",
+      "ico": "💚"
+    },
+    "steal": {
+      "es": "Está robando monedas",
+      "ico": "🪙"
+    },
+    "rush": {
+      "es": "Está corriendo",
+      "ico": "⏱️"
+    },
+    "poison": {
+      "es": "Está preparando veneno",
+      "ico": "☠️"
+    },
+    "fog": {
+      "es": "Está soplando niebla",
+      "ico": "🌫️"
+    },
+    "stealItem": {
+      "es": "Está buscando en tu bolsa",
+      "ico": "🎒"
+    },
+    "listen": {
+      "es": "Está cantando",
+      "ico": "🔊"
+    }
+  }
 }

@@ -21,6 +21,7 @@ export function readSequence(id: string): RawContent {
     sequence: readJson(join(dir, 'sequence.json')),
     enemies: readJson(join(dir, 'enemies.json')),
     items: readJson(join(dir, 'items.json')),
+    cards: existsSync(join(dir, 'cartas.json')) ? readJson(join(dir, 'cartas.json')) : [],
     events: existsSync(join(dir, 'events.json')) ? readJson(join(dir, 'events.json')) : [],
     synergies: existsSync(join(dir, 'synergies.json')) ? readJson(join(dir, 'synergies.json')) : [],
     scenes: existsSync(join(dir, 'scenes.json')) ? readJson(join(dir, 'scenes.json')) : { decors: [], objects: [] },

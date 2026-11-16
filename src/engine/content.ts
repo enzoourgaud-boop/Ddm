@@ -1,6 +1,6 @@
 /** Validation et contrôles de cohérence du contenu, partagés par le jeu et le script `npm run valider`. */
 import {
-  type Content, EnemySchema, EventSchema, ItemSchema, QuestionSchema, ScenesSchema, SequenceSchema, SynergySchema, type EventOutcome, type Question,
+  type Content, CardSchema, EnemySchema, EventSchema, ItemSchema, QuestionSchema, ScenesSchema, SequenceSchema, SynergySchema, type EventOutcome, type Question,
 } from './schema';
 import { normalize } from './answer';
 import { isChoice, orderTokens } from './questions';
@@ -24,6 +24,7 @@ export interface RawContent {
   questions: { file: string; data: unknown }[];
   enemies: unknown;
   items: unknown;
+  cards: unknown;
   events: unknown;
   synergies: unknown;
   scenes: unknown;
@@ -38,6 +39,8 @@ export function parseContent(raw: RawContent): { content: Content | null; issues
   if (!enemies.success) issues.push(...zodIssues('enemies.json', enemies.error));
   const items = z.array(ItemSchema).safeParse(raw.items);
   if (!items.success) issues.push(...zodIssues('items.json', items.error));
+  const cards = z.array(CardSchema).safeParse(raw.cards ?? []);
+  if (!cards.success) issues.push(...zodIssues('cartas.json', cards.error));
   const events = z.array(EventSchema).safeParse(raw.events ?? []);
   if (!events.success) issues.push(...zodIssues('events.json', events.error));
   const synergies = z.array(SynergySchema).safeParse(raw.synergies ?? []);
@@ -64,9 +67,9 @@ export function parseContent(raw: RawContent): { content: Content | null; issues
       } else issues.push(...zodIssues(`${file} › ${id}`, r.error));
     });
   }
-  if (!seq.success || !enemies.success || !items.success || !events.success || !synergies.success || !scenes.success) return { content: null, issues };
+  if (!seq.success || !enemies.success || !items.success || !cards.success || !events.success || !synergies.success || !scenes.success) return { content: null, issues };
   const content: Content = {
-    sequence: seq.data, enemies: enemies.data, items: items.data, questions, events: events.data, synergies: synergies.data, scenes: scenes.data,
+    sequence: seq.data, enemies: enemies.data, items: items.data, cards: cards.data, questions, events: events.data, synergies: synergies.data, scenes: scenes.data,
   };
   issues.push(...checkCoherence(content));
   return { content, issues };

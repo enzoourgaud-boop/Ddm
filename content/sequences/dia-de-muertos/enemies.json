@@ -5,8 +5,8 @@
     "emoji": "🕯️",
     "card": 5,
     "kind": "normal",
-    "hp": 4,
-    "attack": 1,
+    "hp": 10,
+    "attack": 2,
     "pattern": "cycle",
     "intents": [
       {
@@ -29,13 +29,13 @@
     "emoji": "💀",
     "card": 11,
     "kind": "normal",
-    "hp": 4,
-    "attack": 1,
+    "hp": 11,
+    "attack": 2,
     "pattern": "cycle",
     "intents": [
       {
         "kind": "shield",
-        "value": 2
+        "value": 4
       },
       {
         "kind": "attack"
@@ -53,8 +53,8 @@
     "emoji": "🍞",
     "card": 17,
     "kind": "normal",
-    "hp": 5,
-    "attack": 1,
+    "hp": 12,
+    "attack": 2,
     "pattern": "random",
     "intents": [
       {
@@ -65,7 +65,7 @@
       },
       {
         "kind": "heal",
-        "value": 2
+        "value": 4
       }
     ],
     "taunt": "¡Estoy saliendo del horno!",
@@ -77,8 +77,8 @@
     "emoji": "svg:papel-picado",
     "card": 8,
     "kind": "normal",
-    "hp": 4,
-    "attack": 1,
+    "hp": 10,
+    "attack": 2,
     "pattern": "cycle",
     "intents": [
       {
@@ -87,7 +87,7 @@
       },
       {
         "kind": "attack",
-        "value": 2
+        "value": 4
       }
     ],
     "taunt": "¡El viento me lleva tus monedas!",
@@ -99,8 +99,8 @@
     "emoji": "🪅",
     "card": 20,
     "kind": "elite",
-    "hp": 7,
-    "attack": 2,
+    "hp": 18,
+    "attack": 3,
     "modifier": "soloEscrito",
     "pattern": "cycle",
     "intents": [
@@ -109,11 +109,11 @@
       },
       {
         "kind": "shield",
-        "value": 2
+        "value": 4
       },
       {
         "kind": "attack",
-        "value": 3
+        "value": 5
       }
     ],
     "taunt": "¡Aquí solo se escribe!",
@@ -125,8 +125,8 @@
     "emoji": "🐉",
     "card": 23,
     "kind": "jefe",
-    "hp": 9,
-    "attack": 2,
+    "hp": 24,
+    "attack": 3,
     "traits": [
       "colorShift"
     ],
@@ -137,11 +137,11 @@
       },
       {
         "kind": "shield",
-        "value": 2
+        "value": 4
       },
       {
         "kind": "attack",
-        "value": 4
+        "value": 6
       }
     ],
     "taunt": "¡Cambio de color! ¿Qué tema me hace daño hoy?",
@@ -153,8 +153,8 @@
     "emoji": "🐕",
     "card": 29,
     "kind": "normal",
-    "hp": 6,
-    "attack": 2,
+    "hp": 15,
+    "attack": 3,
     "pattern": "random",
     "intents": [
       {
@@ -176,8 +176,8 @@
     "emoji": "🦉",
     "card": 34,
     "kind": "normal",
-    "hp": 6,
-    "attack": 2,
+    "hp": 15,
+    "attack": 3,
     "pattern": "cycle",
     "intents": [
       {
@@ -200,8 +200,8 @@
     "emoji": "🎺",
     "card": 38,
     "kind": "normal",
-    "hp": 7,
-    "attack": 1,
+    "hp": 17,
+    "attack": 2,
     "traits": [
       "crescendo"
     ],
@@ -221,20 +221,20 @@
     "top": "🌼",
     "card": 31,
     "kind": "normal",
-    "hp": 6,
-    "attack": 2,
+    "hp": 15,
+    "attack": 3,
     "pattern": "cycle",
     "intents": [
       {
         "kind": "shield",
-        "value": 2
+        "value": 4
       },
       {
         "kind": "attack"
       },
       {
         "kind": "heal",
-        "value": 2
+        "value": 4
       }
     ],
     "taunt": "Mis flores me protegen.",
@@ -247,8 +247,8 @@
     "top": "🎻",
     "card": 36,
     "kind": "elite",
-    "hp": 9,
-    "attack": 2,
+    "hp": 24,
+    "attack": 3,
     "modifier": "prisa",
     "pattern": "cycle",
     "intents": [
@@ -261,7 +261,7 @@
       },
       {
         "kind": "attack",
-        "value": 4
+        "value": 6
       }
     ],
     "taunt": "¡Rápido, rápido, que la canción se acaba!",
@@ -274,8 +274,8 @@
     "top": "👑",
     "card": 42,
     "kind": "jefe",
-    "hp": 12,
-    "attack": 2,
+    "hp": 32,
+    "attack": 4,
     "traits": [
       "juicio"
     ],
@@ -287,7 +287,7 @@
       },
       {
         "kind": "shield",
-        "value": 3
+        "value": 6
       },
       {
         "kind": "attack"
@@ -302,8 +302,8 @@
     "emoji": "👻",
     "card": 46,
     "kind": "normal",
-    "hp": 7,
-    "attack": 2,
+    "hp": 18,
+    "attack": 4,
     "traits": [
       "vanish"
     ],
@@ -326,8 +326,8 @@
     "emoji": "🦋",
     "card": 49,
     "kind": "normal",
-    "hp": 7,
-    "attack": 2,
+    "hp": 18,
+    "attack": 4,
     "pattern": "cycle",
     "intents": [
       {
@@ -350,8 +350,8 @@
     "emoji": "🐍",
     "card": 51,
     "kind": "normal",
-    "hp": 8,
-    "attack": 2,
+    "hp": 20,
+    "attack": 4,
     "pattern": "cycle",
     "intents": [
       {
@@ -363,7 +363,7 @@
       },
       {
         "kind": "attack",
-        "value": 3
+        "value": 6
       }
     ],
     "taunt": "Sssss… mi veneno es lento.",
@@ -375,8 +375,8 @@
     "emoji": "🐆",
     "card": 14,
     "kind": "elite",
-    "hp": 10,
-    "attack": 3,
+    "hp": 28,
+    "attack": 5,
     "modifier": "niebla",
     "pattern": "cycle",
     "intents": [
@@ -385,11 +385,11 @@
       },
       {
         "kind": "attack",
-        "value": 4
+        "value": 7
       },
       {
         "kind": "shield",
-        "value": 3
+        "value": 6
       }
     ],
     "taunt": "En la niebla, no hay chuleta.",
@@ -402,8 +402,8 @@
     "top": "👒",
     "card": 54,
     "kind": "final",
-    "hp": 20,
-    "attack": 3,
+    "hp": 50,
+    "attack": 5,
     "pattern": "cycle",
     "intents": [
       {
@@ -418,7 +418,7 @@
         "traits": [
           "abanico"
         ],
-        "abanico": 4,
+        "abanico": 6,
         "themes": [
           "cultura",
           "vocabulario"
@@ -433,7 +433,7 @@
           },
           {
             "kind": "attack",
-            "value": 4
+            "value": 7
           }
         ],
         "message": "La Catrina ouvre son abanico : seules les réponses écrites le traversent."
@@ -456,7 +456,7 @@
           },
           {
             "kind": "attack",
-            "value": 4
+            "value": 7
           }
         ],
         "message": "La Catrina pose pour son portrait : décris la scène ! Chaque erreur lui rend 1 PV."
@@ -477,7 +477,7 @@
           },
           {
             "kind": "attack",
-            "value": 5
+            "value": 8
           }
         ],
         "message": "Dernière danse ! Chrono fixe, coups plus forts. Une série de 3 la fait tituber (dégâts doublés)."

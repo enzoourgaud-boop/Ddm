@@ -1,0 +1,221 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<quiz>
+  <question type="category"><category><text>$course$/Sondage El Camino de Cempasúchil</text></category></question>
+  <question type="multichoice">
+    <name><text>Sondage jeu 01</text></name>
+    <questiontext format="html"><text><![CDATA[<p>Combien de parties as-tu jouées à El Camino de Cempasúchil ?</p>]]></text></questiontext>
+    <generalfeedback format="html"><text></text></generalfeedback>
+    <defaultgrade>0</defaultgrade>
+    <penalty>0</penalty>
+    <single>true</single>
+    <shuffleanswers>false</shuffleanswers>
+    <answernumbering>none</answernumbering>
+    <answer fraction="100" format="html"><text><![CDATA[<p>Aucune</p>]]></text></answer>
+    <answer fraction="100" format="html"><text><![CDATA[<p>1 partie</p>]]></text></answer>
+    <answer fraction="100" format="html"><text><![CDATA[<p>2 ou 3 parties</p>]]></text></answer>
+    <answer fraction="100" format="html"><text><![CDATA[<p>4 parties ou plus</p>]]></text></answer>
+  </question>
+  <question type="multichoice">
+    <name><text>Sondage jeu 02</text></name>
+    <questiontext format="html"><text><![CDATA[<p>Sur quel appareil as-tu joué le plus souvent ?</p>]]></text></questiontext>
+    <generalfeedback format="html"><text></text></generalfeedback>
+    <defaultgrade>0</defaultgrade>
+    <penalty>0</penalty>
+    <single>true</single>
+    <shuffleanswers>false</shuffleanswers>
+    <answernumbering>none</answernumbering>
+    <answer fraction="100" format="html"><text><![CDATA[<p>Un ordinateur</p>]]></text></answer>
+    <answer fraction="100" format="html"><text><![CDATA[<p>Une tablette</p>]]></text></answer>
+    <answer fraction="100" format="html"><text><![CDATA[<p>Un téléphone</p>]]></text></answer>
+    <answer fraction="100" format="html"><text><![CDATA[<p>Je n'ai pas joué</p>]]></text></answer>
+  </question>
+  <question type="multichoice">
+    <name><text>Sondage jeu 03</text></name>
+    <questiontext format="html"><text><![CDATA[<p>Est-ce que tu as compris comment jouer sans qu'on t'explique ?</p>]]></text></questiontext>
+    <generalfeedback format="html"><text></text></generalfeedback>
+    <defaultgrade>0</defaultgrade>
+    <penalty>0</penalty>
+    <single>true</single>
+    <shuffleanswers>false</shuffleanswers>
+    <answernumbering>none</answernumbering>
+    <answer fraction="100" format="html"><text><![CDATA[<p>Oui, tout de suite</p>]]></text></answer>
+    <answer fraction="100" format="html"><text><![CDATA[<p>Oui, après un ou deux combats</p>]]></text></answer>
+    <answer fraction="100" format="html"><text><![CDATA[<p>Pas vraiment</p>]]></text></answer>
+    <answer fraction="100" format="html"><text><![CDATA[<p>Non</p>]]></text></answer>
+  </question>
+  <question type="multichoice">
+    <name><text>Sondage jeu 04</text></name>
+    <questiontext format="html"><text><![CDATA[<p>Le jeu est…</p>]]></text></questiontext>
+    <generalfeedback format="html"><text></text></generalfeedback>
+    <defaultgrade>0</defaultgrade>
+    <penalty>0</penalty>
+    <single>true</single>
+    <shuffleanswers>false</shuffleanswers>
+    <answernumbering>none</answernumbering>
+    <answer fraction="100" format="html"><text><![CDATA[<p>Trop facile</p>]]></text></answer>
+    <answer fraction="100" format="html"><text><![CDATA[<p>Un peu facile</p>]]></text></answer>
+    <answer fraction="100" format="html"><text><![CDATA[<p>Juste bien</p>]]></text></answer>
+    <answer fraction="100" format="html"><text><![CDATA[<p>Un peu difficile</p>]]></text></answer>
+    <answer fraction="100" format="html"><text><![CDATA[<p>Trop difficile</p>]]></text></answer>
+  </question>
+  <question type="multichoice">
+    <name><text>Sondage jeu 05</text></name>
+    <questiontext format="html"><text><![CDATA[<p>Une partie dure…</p>]]></text></questiontext>
+    <generalfeedback format="html"><text></text></generalfeedback>
+    <defaultgrade>0</defaultgrade>
+    <penalty>0</penalty>
+    <single>true</single>
+    <shuffleanswers>false</shuffleanswers>
+    <answernumbering>none</answernumbering>
+    <answer fraction="100" format="html"><text><![CDATA[<p>Trop peu de temps</p>]]></text></answer>
+    <answer fraction="100" format="html"><text><![CDATA[<p>Le bon temps</p>]]></text></answer>
+    <answer fraction="100" format="html"><text><![CDATA[<p>Trop longtemps</p>]]></text></answer>
+    <answer fraction="100" format="html"><text><![CDATA[<p>Je n'ai jamais fini une partie</p>]]></text></answer>
+  </question>
+  <question type="multichoice">
+    <name><text>Sondage jeu 06</text></name>
+    <questiontext format="html"><text><![CDATA[<p>Est-ce que le jeu t'a aidé(e) à réviser l'espagnol ?</p>]]></text></questiontext>
+    <generalfeedback format="html"><text></text></generalfeedback>
+    <defaultgrade>0</defaultgrade>
+    <penalty>0</penalty>
+    <single>true</single>
+    <shuffleanswers>false</shuffleanswers>
+    <answernumbering>none</answernumbering>
+    <answer fraction="100" format="html"><text><![CDATA[<p>Oui, beaucoup</p>]]></text></answer>
+    <answer fraction="100" format="html"><text><![CDATA[<p>Oui, un peu</p>]]></text></answer>
+    <answer fraction="100" format="html"><text><![CDATA[<p>Pas vraiment</p>]]></text></answer>
+    <answer fraction="100" format="html"><text><![CDATA[<p>Non</p>]]></text></answer>
+  </question>
+  <question type="multichoice">
+    <name><text>Sondage jeu 07</text></name>
+    <questiontext format="html"><text><![CDATA[<p>Qu'est-ce qui t'a aidé(e) à progresser ? (plusieurs réponses possibles)</p>]]></text></questiontext>
+    <generalfeedback format="html"><text></text></generalfeedback>
+    <defaultgrade>0</defaultgrade>
+    <penalty>0</penalty>
+    <single>false</single>
+    <shuffleanswers>false</shuffleanswers>
+    <answernumbering>none</answernumbering>
+    <answer fraction="12.5" format="html"><text><![CDATA[<p>Les questions de vocabulaire</p>]]></text></answer>
+    <answer fraction="12.5" format="html"><text><![CDATA[<p>Les questions de conjugaison (ESTAR + gérondif)</p>]]></text></answer>
+    <answer fraction="12.5" format="html"><text><![CDATA[<p>Les questions de grammaire (ser / estar / hay, situer)</p>]]></text></answer>
+    <answer fraction="12.5" format="html"><text><![CDATA[<p>Les questions de culture</p>]]></text></answer>
+    <answer fraction="12.5" format="html"><text><![CDATA[<p>Les corrections après une erreur</p>]]></text></answer>
+    <answer fraction="12.5" format="html"><text><![CDATA[<p>Les « almas pendientes » (les questions ratées qui reviennent)</p>]]></text></answer>
+    <answer fraction="12.5" format="html"><text><![CDATA[<p>Le carnet d'erreurs</p>]]></text></answer>
+    <answer fraction="12.5" format="html"><text><![CDATA[<p>Rien de tout ça</p>]]></text></answer>
+  </question>
+  <question type="multichoice">
+    <name><text>Sondage jeu 08</text></name>
+    <questiontext format="html"><text><![CDATA[<p>Quelles façons de répondre as-tu préférées ? (plusieurs réponses possibles)</p>]]></text></questiontext>
+    <generalfeedback format="html"><text></text></generalfeedback>
+    <defaultgrade>0</defaultgrade>
+    <penalty>0</penalty>
+    <single>false</single>
+    <shuffleanswers>false</shuffleanswers>
+    <answernumbering>none</answernumbering>
+    <answer fraction="14.28571" format="html"><text><![CDATA[<p>Le QCM</p>]]></text></answer>
+    <answer fraction="14.28571" format="html"><text><![CDATA[<p>Écrire la réponse</p>]]></text></answer>
+    <answer fraction="14.28571" format="html"><text><![CDATA[<p>Vrai / faux</p>]]></text></answer>
+    <answer fraction="14.28571" format="html"><text><![CDATA[<p>Remettre la phrase dans l'ordre</p>]]></text></answer>
+    <answer fraction="14.28571" format="html"><text><![CDATA[<p>Associer les mots et les images</p>]]></text></answer>
+    <answer fraction="14.28571" format="html"><text><![CDATA[<p>Placer les objets sur la scène</p>]]></text></answer>
+    <answer fraction="14.28571" format="html"><text><![CDATA[<p>Écouter la phrase</p>]]></text></answer>
+  </question>
+  <question type="multichoice">
+    <name><text>Sondage jeu 09</text></name>
+    <questiontext format="html"><text><![CDATA[<p>Qu'est-ce qui t'a le plus plu dans le jeu ? (plusieurs réponses possibles)</p>]]></text></questiontext>
+    <generalfeedback format="html"><text></text></generalfeedback>
+    <defaultgrade>0</defaultgrade>
+    <penalty>0</penalty>
+    <single>false</single>
+    <shuffleanswers>false</shuffleanswers>
+    <answernumbering>none</answernumbering>
+    <answer fraction="12.5" format="html"><text><![CDATA[<p>Les combats</p>]]></text></answer>
+    <answer fraction="12.5" format="html"><text><![CDATA[<p>Les cartes de lotería et la collection</p>]]></text></answer>
+    <answer fraction="12.5" format="html"><text><![CDATA[<p>La carte du chemin et le choix des salles</p>]]></text></answer>
+    <answer fraction="12.5" format="html"><text><![CDATA[<p>Les rencontres (événements) en espagnol</p>]]></text></answer>
+    <answer fraction="12.5" format="html"><text><![CDATA[<p>Les objets et les pouvoirs</p>]]></text></answer>
+    <answer fraction="12.5" format="html"><text><![CDATA[<p>Les personnages (Valentina, Mateo, Luz)</p>]]></text></answer>
+    <answer fraction="12.5" format="html"><text><![CDATA[<p>Les graphismes et la musique</p>]]></text></answer>
+    <answer fraction="12.5" format="html"><text><![CDATA[<p>La Catrina à la fin</p>]]></text></answer>
+  </question>
+  <question type="multichoice">
+    <name><text>Sondage jeu 10</text></name>
+    <questiontext format="html"><text><![CDATA[<p>As-tu rencontré un problème ? (plusieurs réponses possibles)</p>]]></text></questiontext>
+    <generalfeedback format="html"><text></text></generalfeedback>
+    <defaultgrade>0</defaultgrade>
+    <penalty>0</penalty>
+    <single>false</single>
+    <shuffleanswers>false</shuffleanswers>
+    <answernumbering>none</answernumbering>
+    <answer fraction="12.5" format="html"><text><![CDATA[<p>Non, aucun</p>]]></text></answer>
+    <answer fraction="12.5" format="html"><text><![CDATA[<p>Une question dont la réponse semblait fausse</p>]]></text></answer>
+    <answer fraction="12.5" format="html"><text><![CDATA[<p>Je devais faire défiler l'écran pour répondre</p>]]></text></answer>
+    <answer fraction="12.5" format="html"><text><![CDATA[<p>Le jeu était lent ou a planté</p>]]></text></answer>
+    <answer fraction="12.5" format="html"><text><![CDATA[<p>Ma partie ou ma progression a été perdue</p>]]></text></answer>
+    <answer fraction="12.5" format="html"><text><![CDATA[<p>Le son ou la voix ne marchait pas</p>]]></text></answer>
+    <answer fraction="12.5" format="html"><text><![CDATA[<p>Le texte était trop petit ou difficile à lire</p>]]></text></answer>
+    <answer fraction="12.5" format="html"><text><![CDATA[<p>Autre (explique dans la dernière question)</p>]]></text></answer>
+  </question>
+  <question type="multichoice">
+    <name><text>Sondage jeu 11</text></name>
+    <questiontext format="html"><text><![CDATA[<p>Le chrono…</p>]]></text></questiontext>
+    <generalfeedback format="html"><text></text></generalfeedback>
+    <defaultgrade>0</defaultgrade>
+    <penalty>0</penalty>
+    <single>true</single>
+    <shuffleanswers>false</shuffleanswers>
+    <answernumbering>none</answernumbering>
+    <answer fraction="100" format="html"><text><![CDATA[<p>J'ai joué sans chrono</p>]]></text></answer>
+    <answer fraction="100" format="html"><text><![CDATA[<p>Avec chrono, c'était bien</p>]]></text></answer>
+    <answer fraction="100" format="html"><text><![CDATA[<p>Avec chrono, c'était trop stressant</p>]]></text></answer>
+    <answer fraction="100" format="html"><text><![CDATA[<p>Je ne savais pas qu'on pouvait le couper</p>]]></text></answer>
+  </question>
+  <question type="multichoice">
+    <name><text>Sondage jeu 12</text></name>
+    <questiontext format="html"><text><![CDATA[<p>Aimerais-tu rejouer en classe ou à la maison ?</p>]]></text></questiontext>
+    <generalfeedback format="html"><text></text></generalfeedback>
+    <defaultgrade>0</defaultgrade>
+    <penalty>0</penalty>
+    <single>true</single>
+    <shuffleanswers>false</shuffleanswers>
+    <answernumbering>none</answernumbering>
+    <answer fraction="100" format="html"><text><![CDATA[<p>Oui, souvent</p>]]></text></answer>
+    <answer fraction="100" format="html"><text><![CDATA[<p>Oui, de temps en temps</p>]]></text></answer>
+    <answer fraction="100" format="html"><text><![CDATA[<p>Pas vraiment</p>]]></text></answer>
+    <answer fraction="100" format="html"><text><![CDATA[<p>Non</p>]]></text></answer>
+  </question>
+  <question type="multichoice">
+    <name><text>Sondage jeu 13</text></name>
+    <questiontext format="html"><text><![CDATA[<p>Donne une note au jeu, de 1 à 5 étoiles.</p>]]></text></questiontext>
+    <generalfeedback format="html"><text></text></generalfeedback>
+    <defaultgrade>0</defaultgrade>
+    <penalty>0</penalty>
+    <single>true</single>
+    <shuffleanswers>false</shuffleanswers>
+    <answernumbering>none</answernumbering>
+    <answer fraction="100" format="html"><text><![CDATA[<p>⭐</p>]]></text></answer>
+    <answer fraction="100" format="html"><text><![CDATA[<p>⭐⭐</p>]]></text></answer>
+    <answer fraction="100" format="html"><text><![CDATA[<p>⭐⭐⭐</p>]]></text></answer>
+    <answer fraction="100" format="html"><text><![CDATA[<p>⭐⭐⭐⭐</p>]]></text></answer>
+    <answer fraction="100" format="html"><text><![CDATA[<p>⭐⭐⭐⭐⭐</p>]]></text></answer>
+  </question>
+  <question type="essay">
+    <name><text>Sondage jeu 14</text></name>
+    <questiontext format="html"><text><![CDATA[<p>Qu'est-ce que tu changerais ou ajouterais au jeu ?</p>]]></text></questiontext>
+    <defaultgrade>0</defaultgrade>
+    <responseformat>plain</responseformat>
+    <responserequired>0</responserequired>
+    <responsefieldlines>5</responsefieldlines>
+    <attachments>0</attachments>
+  </question>
+  <question type="essay">
+    <name><text>Sondage jeu 15</text></name>
+    <questiontext format="html"><text><![CDATA[<p>Y a-t-il une question du jeu qui t'a semblé fausse ou bizarre ? Si oui, laquelle (ou à peu près) ?</p>]]></text></questiontext>
+    <defaultgrade>0</defaultgrade>
+    <responseformat>plain</responseformat>
+    <responserequired>0</responserequired>
+    <responsefieldlines>5</responsefieldlines>
+    <attachments>0</attachments>
+  </question>
+</quiz>
