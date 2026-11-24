@@ -268,4 +268,22 @@ describe('d’une partie à l’autre (simulation)', () => {
       expect(second.warmup).toBeLessThanOrEqual(WARMUP_MAX);
     }
   });
+
+  it('une question réussie ne revient pas dans la même partie (tant que la banque n’est pas épuisée)', () => {
+    for (const themes of [null, ['conjugacion'], ['gramatica']]) {
+      for (let i = 0; i < 40; i++) {
+        const okIds = new Set<string>();
+        let repeats = 0;
+        simulate(content(), `NOREP-${i}`, 0.75, { ...DEFAULT_SETTINGS, themes }, {
+          attach: g => {
+            g.onRecord = (q, v) => {
+              if (okIds.has(q.id)) repeats++;
+              if (v === 'ok') okIds.add(q.id);
+            };
+          },
+        });
+        expect(repeats, `thèmes ${themes ?? 'tous'}, partie ${i}`).toBe(0);
+      }
+    }
+  });
 });

@@ -179,7 +179,7 @@ Pour une nouvelle séquence (la Navidad, la Semana Santa…), copie ce dossier s
 - La progression (profil, cartes, carnet) est enregistrée **uniquement dans le navigateur** de l'appareil (« stockage local »). Un bouton permet de supprimer un profil.
 - Si le navigateur bloque le stockage (navigation privée…), le jeu fonctionne quand même et prévient que la progression ne sera pas gardée.
 - Le **code de fin de partie** ne contient que le résultat, la date et les notions ratées : ni pseudo, ni identifiant.
-- La voix de la compréhension orale est celle du navigateur (`speechSynthesis`), sans envoi de données.
+- La voix de la compréhension orale est celle du navigateur (`speechSynthesis`). Une voix espagnole installée sur l'appareil est utilisée en priorité, sans rien envoyer. Sinon, Chrome et Edge utilisent leur voix en ligne : seule la phrase espagnole à lire part chez Google ou Microsoft, jamais d'information sur l'élève. Sans réseau, la phrase s'affiche 5 secondes à la place.
 
 ---
 

@@ -1,5 +1,7 @@
 /**
- * Synthèse vocale du navigateur (speechSynthesis), entièrement locale : aucune donnée envoyée.
+ * Synthèse vocale du navigateur (speechSynthesis). Les voix installées sur l'appareil passent en premier ;
+ * à défaut (cas fréquent sur les PC de collège), une voix « en ligne » de Chrome ou Edge, choix validé par le professeur :
+ * seule la phrase de la banque part chez Google ou Microsoft, jamais rien sur l'élève.
  * Ordre de préférence des voix : celui de sequence.json (es-MX, es-US, es-ES, es…).
  * Si aucune voix espagnole n'existe, l'interface passe en « lecture flash ».
  */
@@ -40,22 +42,24 @@ export function voicesReady(): Promise<void> {
 }
 
 export function pickVoice(prefs: string[]): SpeechSynthesisVoice | null {
-  // uniquement les voix installées sur l'appareil : une voix « en ligne » enverrait le texte à un service extérieur
-  // et resterait muette sans connexion (on bascule alors sur la lecture éclair)
-  const vs = cachedVoices.filter(v => v.lang && v.lang.toLowerCase().startsWith('es') && v.localService !== false);
-  for (const p of prefs) {
-    const exact = vs.find(v => v.lang.toLowerCase().replace('_', '-') === p.toLowerCase());
-    if (exact) return exact;
+  const es = cachedVoices.filter(v => v.lang && v.lang.toLowerCase().startsWith('es'));
+  // voix installées d'abord ; une voix en ligne muette (pas de réseau) déclenche la lecture éclair via onFail
+  for (const vs of [es.filter(v => v.localService !== false), es]) {
+    for (const p of prefs) {
+      const exact = vs.find(v => v.lang.toLowerCase().replace('_', '-') === p.toLowerCase());
+      if (exact) return exact;
+    }
+    if (vs.length) return vs[0];
   }
-  return vs[0] ?? null;
+  return null;
 }
 
 export function canSpeak(prefs: string[]): boolean {
   return !!synth() && !!pickVoice(prefs);
 }
 
-/** Lit un texte. Renvoie false si c'est impossible (pas de voix espagnole). */
-export function speak(text: string, prefs: string[], rate = 0.9): boolean {
+/** Lit un texte. Renvoie false si c'est impossible (pas de voix espagnole) ; onFail si la voix échoue en cours de route. */
+export function speak(text: string, prefs: string[], rate = 0.9, onFail?: () => void): boolean {
   const s = synth();
   const v = pickVoice(prefs);
   if (!s || !v) return false;
@@ -65,7 +69,11 @@ export function speak(text: string, prefs: string[], rate = 0.9): boolean {
     u.voice = v;
     u.lang = v.lang;
     u.rate = rate;
-    s.speak(u);
+    u.onerror = e => {
+      if (e.error !== 'canceled' && e.error !== 'interrupted') onFail?.();
+    };
+    // Chrome perd parfois une phrase lancée juste après cancel()
+    setTimeout(() => s.speak(u), 50);
     return true;
   } catch {
     return false;

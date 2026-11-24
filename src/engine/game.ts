@@ -607,12 +607,10 @@ export class Game {
     const s = this.state;
     const ok = (q: Question) => this.isUsable(q) && (!o.needWrite || isWritable(q)) && (!o.onlyType || q.type === o.onlyType);
     const order = [o.level, ...[4, 3, 2, 1].filter(l => l < o.level), ...[1, 2, 3, 4].filter(l => l > o.level)];
+    // un niveau voisin pas encore vu plutôt qu'une question déjà posée dans la partie
     const candidatesFor = (theme: string): Question[] => {
-      for (const l of order) {
-        const pool = this.content.questions.filter(q => q.theme === theme && levelNum(q.level) === l && ok(q));
-        if (pool.length) return pool;
-      }
-      return [];
+      const pools = order.map(l => this.content.questions.filter(q => q.theme === theme && levelNum(q.level) === l && ok(q))).filter(p => p.length);
+      return pools.find(p => p.some(q => !s.seen[q.id])) ?? pools[0] ?? [];
     };
     const withPool = o.themes.map(t => ({ t, pool: candidatesFor(t) })).filter(x => x.pool.length);
     if (!withPool.length && o.onlyType) return this.pick({ ...o, onlyType: undefined });
@@ -621,13 +619,18 @@ export class Game {
       return this.rng.pick(any.length ? any : this.content.questions);
     }
     // pour chaque thème : questions pas encore vues, puis sans ressemblance avec les dernières posées
+    // thème épuisé : on ne repose que des questions ratées, jamais une question déjà réussie (sauf s'il n'y a plus rien d'autre)
     const refine = (pool: Question[]) => {
       const fresh = pool.filter(q => !s.seen[q.id]);
-      const base = fresh.length ? fresh : pool;
+      const failed = pool.filter(q => s.retry.includes(q.id));
+      const base = fresh.length ? fresh : failed.length ? failed : pool;
       return { base, far: base.filter(q => !this.clashes(q.id)) };
     };
+    const hasFresh = (x: { pool: Question[] }) => x.pool.some(q => !s.seen[q.id]);
     let chosen = this.rng.pick(withPool);
     if (o.weakTheme && this.rng.chance(0.4)) chosen = withPool.find(x => x.t === o.weakTheme) ?? chosen;
+    const freshThemes = withPool.filter(hasFresh);
+    if (!hasFresh(chosen) && freshThemes.length) chosen = this.rng.pick(freshThemes);
     let { base, far } = refine(chosen.pool);
     if (!far.length) {
       // ce thème n'a plus que des questions trop proches : on essaie un autre thème
