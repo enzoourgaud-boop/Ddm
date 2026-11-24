@@ -383,7 +383,7 @@ export function ListenBar({ text, voices, auto }: { text: string; voices: string
     );
   return (
     <div class="escucha sin-voz">
-      <p class="muted">Pas de voix espagnole installée sur cet appareil : lis la phrase, elle disparaît au bout de 5 secondes. <small>(Sous Windows : Paramètres › Heure et langue › Voix › ajouter une voix espagnole.)</small></p>
+      <p class="muted">Pas de voix espagnole disponible sur cet appareil : lis la phrase, elle disparaît au bout de 5 secondes. <small>(Sous Windows : Paramètres › Heure et langue › Voix › ajouter une voix espagnole.)</small></p>
       {state === 'flash' ? (
         <p class="flash-texto" lang="es">
           « {text} »
