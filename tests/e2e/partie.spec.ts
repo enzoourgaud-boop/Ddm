@@ -211,3 +211,17 @@ test('almas pendientes : les questions ratées attendent au début de la partie 
   await expect(page.locator('.hud')).toContainText('16/16');
   await expect(page.locator('.hud .chip.almas')).toContainText('1');
 });
+
+test('le menu de départ permet de ne travailler qu’un domaine', async ({ page }) => {
+  await page.fill('#pseudo', 'Domaine');
+  await page.click('text=Créer et jouer');
+  await page.getByRole('combobox', { name: 'Domaine', exact: true }).selectOption('cultura');
+  await page.getByRole('button', { name: 'Commencer le chemin' }).click();
+  await page.locator('.sala.puede').first().click();
+  for (let k = 0; k < 4; k++) {
+    await expect(page.locator('.qa .tag')).toHaveText('Cultura');
+    await answerCurrent(page, data);
+    await page.locator('.combate .fb .btn').click();
+    if (!(await page.locator('.combate .qa[data-qid]').count())) break;
+  }
+});

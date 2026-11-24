@@ -71,6 +71,7 @@ Tu peux donner cette adresse aux élèves, ou en faire un QR code. Le plus simpl
 ## 2. Utiliser le jeu en classe
 
 - **Premier lancement** : chaque élève crée un **profil** (un pseudo et un avatar). Le jeu conseille un surnom plutôt que le vrai nom. Sur un PC partagé, chaque élève choisit son profil : la progression de chacun est séparée.
+- **Un seul domaine** : sur l'écran d'accueil, la liste « Domaine » permet de ne réviser que le vocabulaire, la conjugaison, la grammaire ou la culture. Elle disparaît quand un code de classe est actif (ce sont alors tes réglages qui comptent).
 - **Code de classe** : donne aux élèves le code de 6 caractères de l'espace professeur (ou fais-leur scanner le QR code projeté). Ils le tapent dans « Code de classe » sur l'écran d'accueil. Tes réglages s'appliquent : thèmes, types de questions, chrono, etc.
 - **Défi de classe** : avec une **graine** (ex. `VELA-12`), toute la classe joue la même carte. C'est pratique pour comparer ou corriger ensemble.
 - **Fin de partie** : l'élève obtient un **code** (ex. `HC8BA-351GA-HMQ00-W9S0`) et un QR code qui résument son résultat et les notions à revoir. Il te le montre ou le recopie, et tu le décodes dans l'espace professeur.
