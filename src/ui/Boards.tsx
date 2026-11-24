@@ -345,6 +345,8 @@ export function PlaceBoard({ q, asked, scenes, done, onSubmit }: {
 export function ListenBar({ text, voices, auto }: { text: string; voices: string[]; auto: boolean }) {
   const [state, setState] = useState<'wait' | 'voice' | 'flash' | 'hidden'>('wait');
   const [shown, setShown] = useState(0);
+  // la voix n'a pas pu parler : lecture éclair
+  const fail = () => setState(st => (st === 'voice' ? 'flash' : st));
   useEffect(() => {
     let alive = true;
     setState('wait');
@@ -353,7 +355,7 @@ export function ListenBar({ text, voices, auto }: { text: string; voices: string
       if (!alive) return;
       if (canSpeak(voices)) {
         setState('voice');
-        if (auto) speak(text, voices);
+        if (auto) speak(text, voices, 0.9, fail);
       } else setState('flash');
     });
     return () => {
@@ -371,17 +373,17 @@ export function ListenBar({ text, voices, auto }: { text: string; voices: string
   if (state === 'voice')
     return (
       <div class="escucha" role="group" aria-label="Écoute">
-        <button class="btn altavoz" onClick={() => speak(text, voices)}>
+        <button class="btn altavoz" onClick={() => speak(text, voices, 0.9, fail)}>
           🔊 Écouter
         </button>
-        <button class="btn sec" onClick={() => speak(text, voices, 0.6)}>
+        <button class="btn sec" onClick={() => speak(text, voices, 0.6, fail)}>
           🐢 Plus lentement
         </button>
       </div>
     );
   return (
     <div class="escucha sin-voz">
-      <p class="muted">Pas de voix espagnole sur cet appareil : lis la phrase, elle disparaît au bout de 5 secondes.</p>
+      <p class="muted">Pas de voix espagnole installée sur cet appareil : lis la phrase, elle disparaît au bout de 5 secondes. <small>(Sous Windows : Paramètres › Heure et langue › Voix › ajouter une voix espagnole.)</small></p>
       {state === 'flash' ? (
         <p class="flash-texto" lang="es">
           « {text} »

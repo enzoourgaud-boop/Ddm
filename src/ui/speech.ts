@@ -54,8 +54,8 @@ export function canSpeak(prefs: string[]): boolean {
   return !!synth() && !!pickVoice(prefs);
 }
 
-/** Lit un texte. Renvoie false si c'est impossible (pas de voix espagnole). */
-export function speak(text: string, prefs: string[], rate = 0.9): boolean {
+/** Lit un texte. Renvoie false si c'est impossible (pas de voix espagnole) ; onFail si la voix échoue en cours de route. */
+export function speak(text: string, prefs: string[], rate = 0.9, onFail?: () => void): boolean {
   const s = synth();
   const v = pickVoice(prefs);
   if (!s || !v) return false;
@@ -65,7 +65,11 @@ export function speak(text: string, prefs: string[], rate = 0.9): boolean {
     u.voice = v;
     u.lang = v.lang;
     u.rate = rate;
-    s.speak(u);
+    u.onerror = e => {
+      if (e.error !== 'canceled' && e.error !== 'interrupted') onFail?.();
+    };
+    // Chrome perd parfois une phrase lancée juste après cancel()
+    setTimeout(() => s.speak(u), 50);
     return true;
   } catch {
     return false;
