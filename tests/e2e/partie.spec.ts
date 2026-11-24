@@ -35,6 +35,8 @@ test('une partie entière, du profil jusqu’au code de fin', async ({ page }) =
 
 test('espace professeur : code de classe appliqué côté élève', async ({ page, context }) => {
   await page.goto('./#prof');
+  // un simple changement d'ancre peut arriver avant que le jeu écoute « hashchange » : on recharge
+  await page.reload();
   await page.fill('#prof-code', 'profe2026');
   await page.click('text=Entrer');
   await page.locator('label.check:has-text("Vocabulario") input').click();
