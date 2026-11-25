@@ -237,6 +237,20 @@ export function Title({ content, profile, meta, saved, settings, onSettings, onS
           <span>Graine</span>
           <input type="text" value={seed} placeholder="au hasard" maxLength={24} onInput={e => setSeed((e.target as HTMLInputElement).value)} aria-describedby="seed-help" />
         </label>
+        {!classe && (
+          <label>
+            <span>Domaine</span>
+            <select
+              value={settings.themes?.length === 1 ? settings.themes[0] : ''}
+              onChange={e => { const v = (e.target as HTMLSelectElement).value; onSettings({ ...settings, themes: v ? [v] : null }); }}
+            >
+              <option value="">Tous les domaines</option>
+              {seq.themes.map(t => (
+                <option key={t.id} value={t.id}>{t.label} seulement</option>
+              ))}
+            </select>
+          </label>
+        )}
         <label>
           <input type="checkbox" checked={settings.chrono} onChange={e => onSettings({ ...settings, chrono: (e.target as HTMLInputElement).checked })} />
           Chrono
