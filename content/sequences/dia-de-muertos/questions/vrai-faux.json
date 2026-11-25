@@ -538,5 +538,50 @@
     "translation": "Le gérondif de « dormir » est « durmiendo ».",
     "explanation": "Verdadero : o → u.",
     "source": "estar-gerundio"
+  },
+  {
+    "id": "vf-cempa-icono",
+    "type": "vrai-faux",
+    "theme": "cultura",
+    "notions": [
+      "cultura-cempasuchil"
+    ],
+    "level": 1,
+    "label": "¿Verdadero o falso?",
+    "prompt": "La flor de cempasúchil es un icono del Día de Muertos.",
+    "answer": "verdadero",
+    "translation": "La fleur de cempasúchil est un symbole du Día de Muertos.",
+    "explanation": "Verdadero : es un icono del Día de Muertos y representa la luz.",
+    "source": "doc4-cempasuchil"
+  },
+  {
+    "id": "vf-cempa-10-petalos",
+    "type": "vrai-faux",
+    "theme": "cultura",
+    "notions": [
+      "cultura-cempasuchil"
+    ],
+    "level": 2,
+    "label": "¿Verdadero o falso?",
+    "prompt": "La palabra «cempasúchil» significa «flor de 10 pétalos».",
+    "answer": "falso",
+    "translation": "Le mot « cempasúchil » signifie « fleur de 10 pétales ».",
+    "explanation": "Falso : significa «flor de 20 pétalos».",
+    "source": "doc4-cempasuchil"
+  },
+  {
+    "id": "vf-cempa-difuntos",
+    "type": "vrai-faux",
+    "theme": "cultura",
+    "notions": [
+      "cultura-cempasuchil"
+    ],
+    "level": 1,
+    "label": "¿Verdadero o falso?",
+    "prompt": "El Día de Muertos, los difuntos regresan a sus casas para visitar a los vivos.",
+    "answer": "verdadero",
+    "translation": "Le jour des morts, les défunts reviennent chez eux pour rendre visite aux vivants.",
+    "explanation": "Verdadero : es el único día en que los difuntos regresan a sus casas.",
+    "source": "doc4-cempasuchil"
   }
 ]

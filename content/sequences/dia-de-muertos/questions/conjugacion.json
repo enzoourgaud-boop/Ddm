@@ -1990,5 +1990,330 @@
     "check": {
       "optionalSubject": true
     }
+  },
+  {
+    "id": "conj-pres-dia-es",
+    "type": "qcm",
+    "theme": "conjugacion",
+    "notions": [
+      "presente-indicativo"
+    ],
+    "level": 1,
+    "label": "Conjugue au présent de l'indicatif",
+    "prompt": "El Día de Muertos (ser) ___ tan importante para los mexicanos.",
+    "answer": "es",
+    "accept": [],
+    "distractors": [
+      "son",
+      "está",
+      "eres"
+    ],
+    "writable": true,
+    "translation": "Le Día de Muertos est si important pour les Mexicains.",
+    "explanation": "ser : soy, eres, es, somos, sois, son. El Día de Muertos = él → es.",
+    "source": "doc4-cempasuchil",
+    "check": {
+      "optionalSubject": true
+    }
+  },
+  {
+    "id": "conj-pres-flores-son",
+    "type": "qcm",
+    "theme": "conjugacion",
+    "notions": [
+      "presente-indicativo"
+    ],
+    "level": 1,
+    "label": "Conjugue au présent de l'indicatif",
+    "prompt": "Las flores de cempasúchil (ser) ___ un icono del Día de Muertos.",
+    "answer": "son",
+    "accept": [],
+    "distractors": [
+      "es",
+      "están",
+      "somos"
+    ],
+    "writable": true,
+    "translation": "Les fleurs de cempasúchil sont un symbole du Día de Muertos.",
+    "explanation": "ser : soy, eres, es, somos, sois, son. Las flores = ellas → son.",
+    "source": "doc4-cempasuchil",
+    "check": {
+      "optionalSubject": true
+    }
+  },
+  {
+    "id": "conj-pres-regresan",
+    "type": "qcm",
+    "theme": "conjugacion",
+    "notions": [
+      "presente-indicativo"
+    ],
+    "level": 1,
+    "label": "Conjugue au présent de l'indicatif",
+    "prompt": "Los difuntos (regresar) ___ a sus casas para visitar a los vivos.",
+    "answer": "regresan",
+    "accept": [],
+    "distractors": [
+      "regresa",
+      "regresamos",
+      "regresáis"
+    ],
+    "writable": true,
+    "translation": "Les défunts reviennent chez eux pour rendre visite aux vivants.",
+    "explanation": "Verbe régulier en -ar : ellos → -an. Los difuntos regresan.",
+    "source": "doc4-cempasuchil",
+    "check": {
+      "optionalSubject": true
+    }
+  },
+  {
+    "id": "conj-pres-representa",
+    "type": "qcm",
+    "theme": "conjugacion",
+    "notions": [
+      "presente-indicativo"
+    ],
+    "level": 1,
+    "label": "Conjugue au présent de l'indicatif",
+    "prompt": "La flor de cempasúchil (representar) ___ la luz.",
+    "answer": "representa",
+    "accept": [],
+    "distractors": [
+      "representan",
+      "representas",
+      "represento"
+    ],
+    "writable": true,
+    "translation": "La fleur de cempasúchil représente la lumière.",
+    "explanation": "Verbe régulier en -ar : él / ella → -a. La flor representa.",
+    "source": "doc4-cempasuchil",
+    "check": {
+      "optionalSubject": true
+    }
+  },
+  {
+    "id": "conj-pres-significa",
+    "type": "qcm",
+    "theme": "conjugacion",
+    "notions": [
+      "presente-indicativo"
+    ],
+    "level": 1,
+    "label": "Conjugue au présent de l'indicatif",
+    "prompt": "La palabra «cempasúchil» (significar) ___ «flor de 20 pétalos».",
+    "answer": "significa",
+    "accept": [],
+    "distractors": [
+      "significan",
+      "significas",
+      "significamos"
+    ],
+    "writable": true,
+    "translation": "Le mot « cempasúchil » signifie « fleur de 20 pétales ».",
+    "explanation": "Verbe régulier en -ar : él / ella → -a. La palabra significa.",
+    "source": "doc4-cempasuchil",
+    "check": {
+      "optionalSubject": true
+    }
+  },
+  {
+    "id": "conj-pres-se-parece",
+    "type": "qcm",
+    "theme": "conjugacion",
+    "notions": [
+      "presente-indicativo"
+    ],
+    "level": 2,
+    "label": "Conjugue au présent de l'indicatif",
+    "prompt": "La flor (parecerse) ___ a los rayos del sol.",
+    "answer": "se parece",
+    "accept": [],
+    "distractors": [
+      "se parecen",
+      "te pareces",
+      "me parezco"
+    ],
+    "writable": true,
+    "translation": "La fleur ressemble aux rayons du soleil.",
+    "explanation": "Verbe pronominal : la flor = ella → se + parece.",
+    "source": "doc4-cempasuchil",
+    "check": {
+      "optionalSubject": true
+    }
+  },
+  {
+    "id": "conj-pres-cuenta",
+    "type": "qcm",
+    "theme": "conjugacion",
+    "notions": [
+      "presente-indicativo"
+    ],
+    "level": 2,
+    "label": "Conjugue au présent de l'indicatif",
+    "prompt": "La leyenda azteca (contar) ___ una historia de amor.",
+    "answer": "cuenta",
+    "accept": [],
+    "distractors": [
+      "conta",
+      "cuentan",
+      "contas"
+    ],
+    "writable": true,
+    "translation": "La légende aztèque raconte une histoire d'amour.",
+    "explanation": "contar change o → ue (sauf nosotros et vosotros) : cuento, cuentas, cuenta…",
+    "source": "doc4-cempasuchil",
+    "check": {
+      "optionalSubject": true
+    }
+  },
+  {
+    "id": "conj-pres-muere",
+    "type": "qcm",
+    "theme": "conjugacion",
+    "notions": [
+      "presente-indicativo"
+    ],
+    "level": 2,
+    "label": "Conjugue au présent de l'indicatif",
+    "prompt": "En la leyenda, el enamorado (morir) ___ en la guerra.",
+    "answer": "muere",
+    "accept": [],
+    "distractors": [
+      "more",
+      "mueren",
+      "moro"
+    ],
+    "writable": true,
+    "translation": "Dans la légende, l'amoureux meurt à la guerre.",
+    "explanation": "morir change o → ue : muero, mueres, muere, morimos, morís, mueren.",
+    "source": "doc4-cempasuchil",
+    "check": {
+      "optionalSubject": true
+    }
+  },
+  {
+    "id": "conj-pres-pide",
+    "type": "qcm",
+    "theme": "conjugacion",
+    "notions": [
+      "presente-indicativo"
+    ],
+    "level": 2,
+    "label": "Conjugue au présent de l'indicatif",
+    "prompt": "La enamorada (pedir) ___ unirse con él.",
+    "answer": "pide",
+    "accept": [],
+    "distractors": [
+      "pede",
+      "piden",
+      "pido"
+    ],
+    "writable": true,
+    "translation": "L'amoureuse demande à être unie à lui.",
+    "explanation": "pedir change e → i : pido, pides, pide, pedimos, pedís, piden.",
+    "source": "doc4-cempasuchil",
+    "check": {
+      "optionalSubject": true
+    }
+  },
+  {
+    "id": "conj-pres-contar-yo",
+    "type": "qcm",
+    "theme": "conjugacion",
+    "notions": [
+      "presente-indicativo"
+    ],
+    "level": 2,
+    "label": "Conjugue au présent de l'indicatif",
+    "prompt": "contar — yo …",
+    "answer": "cuento",
+    "accept": [],
+    "distractors": [
+      "conto",
+      "cuenta",
+      "contamos"
+    ],
+    "writable": true,
+    "translation": "contar = raconter · yo = je",
+    "explanation": "contar change o → ue : cuento, cuentas, cuenta, contamos, contáis, cuentan.",
+    "source": "doc4-cempasuchil",
+    "check": {
+      "optionalSubject": true
+    }
+  },
+  {
+    "id": "conj-pres-morir-ellos",
+    "type": "qcm",
+    "theme": "conjugacion",
+    "notions": [
+      "presente-indicativo"
+    ],
+    "level": 2,
+    "label": "Conjugue au présent de l'indicatif",
+    "prompt": "morir — ellos …",
+    "answer": "mueren",
+    "accept": [],
+    "distractors": [
+      "moren",
+      "muere",
+      "morimos"
+    ],
+    "writable": true,
+    "translation": "morir = mourir · ellos = ils",
+    "explanation": "morir change o → ue : muero, mueres, muere, morimos, morís, mueren.",
+    "source": "doc4-cempasuchil",
+    "check": {
+      "optionalSubject": true
+    }
+  },
+  {
+    "id": "conj-pres-pedir-nosotros",
+    "type": "qcm",
+    "theme": "conjugacion",
+    "notions": [
+      "presente-indicativo"
+    ],
+    "level": 3,
+    "label": "Conjugue au présent de l'indicatif",
+    "prompt": "pedir — nosotros …",
+    "answer": "pedimos",
+    "accept": [],
+    "distractors": [
+      "pidimos",
+      "piden",
+      "pedemos"
+    ],
+    "writable": true,
+    "translation": "pedir = demander · nosotros = nous",
+    "explanation": "Piège : avec nosotros, pas de changement e → i. pedir : pido, pides, pide, pedimos, pedís, piden.",
+    "source": "doc4-cempasuchil",
+    "check": {
+      "optionalSubject": true
+    }
+  },
+  {
+    "id": "conj-pres-contar-nosotros",
+    "type": "qcm",
+    "theme": "conjugacion",
+    "notions": [
+      "presente-indicativo"
+    ],
+    "level": 3,
+    "label": "Conjugue au présent de l'indicatif",
+    "prompt": "contar — nosotros …",
+    "answer": "contamos",
+    "accept": [],
+    "distractors": [
+      "cuentamos",
+      "cuentan",
+      "contemos"
+    ],
+    "writable": true,
+    "translation": "contar = raconter · nosotros = nous",
+    "explanation": "Piège : avec nosotros, pas de changement o → ue. contar : cuento, cuentas, cuenta, contamos, contáis, cuentan.",
+    "source": "doc4-cempasuchil",
+    "check": {
+      "optionalSubject": true
+    }
   }
 ]
