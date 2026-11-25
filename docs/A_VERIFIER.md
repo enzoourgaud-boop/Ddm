@@ -170,3 +170,12 @@ Chaque sort porte un verbe de ta fiche ESTAR + GERUNDIO ou de tes textes. À vé
 ### 9.4 Textes à relire le moment venu
 
 Tout texte espagnol nouveau (histoire, dialogues, recetas, légendes d'état) sera listé ici, étape par étape, **avant** d'entrer dans le jeu. Les exemples cités dans `V2.md` sont des échantillons pour juger du niveau.
+
+## 10. Doc4 « La flor de cempasúchil » (à relire)
+
+Les 22 questions viennent du texte du Doc4 (source `doc4-cempasuchil`). Le document ne donne pas le corrigé : les formes au présent sont les miennes.
+
+- ☐ Corrigé du texte à trous : es, es, regresan, es, representa, **se parece**, significa, cuenta, muere, pide, es (convertida). Voir `sources/contenu-sequence.md`.
+- ☐ 13 questions de conjugaison (notion « Présent de l'indicatif ») : phrases du texte, plus *contar* / *morir* / *pedir* hors texte (yo, ellos, nosotros) pour travailler les pièges o → ue et e → i.
+- ☐ 9 questions de culture (notion « la flor de cempasúchil ») : la luz, adornar las ofrendas, rayos del sol, « flor de 20 pétalos », la leyenda (colibrí, flor similar al sol). **Aucune question sur les noms des personnages de la légende**, comme demandé ; les noms n'apparaissent dans aucune question.
+- ☐ Deux phrases sont adaptées du texte : « Las flores de cempasúchil son un icono… » (pluriel, pour travailler *son*) et « La leyenda azteca cuenta una historia de amor » (le texte dit « cuenta que dos enamorados… »).

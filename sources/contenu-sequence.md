@@ -83,3 +83,13 @@ Note : ne pas reproduire l'affiche ni les personnages du film dans le jeu (droit
   - LEER → leyendo
   - OÍR → oyendo
   - TRAER → trayendo
+
+## Doc4_CE_Cempasuchil.pdf ("La flor de cempasúchil", Señora Goulas)
+
+Consigne : « Conjuga los verbos en presente del indicativo a la persona que corresponde ». Texte à trous (corrigé entre crochets, déduit de la consigne) :
+
+El día de muertos (ser) [es] tan importante para los mexicanos porque (ser) [es] el único día en que los difuntos (regresar) [regresan] a sus casas para visitar a los vivos. La flor de cempasúchil (ser) [es] un icono del día de muertos y (representar) [representa] la luz. Los mexicas utilizaban esta flor para adornar sus ofrendas ya que (parecerse) [se parece] a los rayos del sol por su color y tono. La palabra cempasúchil (significar) [significa] flor de 20 pétalos.
+
+La leyenda azteca (contar) [cuenta] que dos enamorados, Huitzilin y Xochitl, llevaban flores a Tonatiuh, el dios del sol. Cuando Huitzilin (morir) [muere] en la guerra, Xochitl (pedir) [pide] unirse con él y (ser) [es] convertida en una flor similar al sol. Y él, transformado en colibrí, se posó sobre la flor, la cual se abrió en 20 pétalos.
+
+Note du professeur : pas de question sur le nom des personnages de la légende.

@@ -883,5 +883,131 @@
     "translation": "Que se passe-t-il aujourd'hui avec la Catrina ?",
     "explanation": "Actualmente este personaje se ha popularizado y se ha adoptado como disfraz.",
     "source": "p3-catrina"
+  },
+  {
+    "id": "cult-cempa-representa",
+    "type": "qcm",
+    "theme": "cultura",
+    "notions": [
+      "cultura-cempasuchil"
+    ],
+    "level": 1,
+    "prompt": "¿Qué representa la flor de cempasúchil?",
+    "answer": "La luz",
+    "accept": [],
+    "distractors": [
+      "La muerte",
+      "El agua",
+      "La tristeza"
+    ],
+    "writable": false,
+    "translation": "Que représente la fleur de cempasúchil ?",
+    "explanation": "La flor de cempasúchil es un icono del Día de Muertos y representa la luz.",
+    "source": "doc4-cempasuchil"
+  },
+  {
+    "id": "cult-cempa-mexicas",
+    "type": "qcm",
+    "theme": "cultura",
+    "notions": [
+      "cultura-cempasuchil"
+    ],
+    "level": 1,
+    "prompt": "¿Para qué utilizaban los mexicas la flor de cempasúchil?",
+    "answer": "Para adornar sus ofrendas",
+    "accept": [],
+    "distractors": [
+      "Para comer",
+      "Para pintar las casas",
+      "Para hacer música"
+    ],
+    "writable": false,
+    "translation": "À quoi les Mexicas utilisaient-ils la fleur de cempasúchil ?",
+    "explanation": "Los mexicas utilizaban esta flor para adornar sus ofrendas.",
+    "source": "doc4-cempasuchil"
+  },
+  {
+    "id": "cult-cempa-significa",
+    "type": "qcm",
+    "theme": "cultura",
+    "notions": [
+      "cultura-cempasuchil"
+    ],
+    "level": 2,
+    "prompt": "¿Qué significa la palabra «cempasúchil»?",
+    "answer": "Flor de 20 pétalos",
+    "accept": [],
+    "distractors": [
+      "Flor del sol",
+      "Flor de los muertos",
+      "Flor de 10 pétalos"
+    ],
+    "writable": false,
+    "translation": "Que signifie le mot « cempasúchil » ?",
+    "explanation": "La palabra cempasúchil significa «flor de 20 pétalos».",
+    "source": "doc4-cempasuchil"
+  },
+  {
+    "id": "cult-cempa-por-que",
+    "type": "qcm",
+    "theme": "cultura",
+    "notions": [
+      "cultura-cempasuchil"
+    ],
+    "level": 2,
+    "prompt": "¿Por qué los mexicas adornaban sus ofrendas con esta flor?",
+    "answer": "Porque se parece a los rayos del sol",
+    "accept": [],
+    "distractors": [
+      "Porque huele muy bien",
+      "Porque es muy pequeña",
+      "Porque crece en el cementerio"
+    ],
+    "writable": false,
+    "translation": "Pourquoi les Mexicas décoraient-ils leurs offrandes avec cette fleur ?",
+    "explanation": "Por su color y su tono, la flor se parece a los rayos del sol.",
+    "source": "doc4-cempasuchil"
+  },
+  {
+    "id": "cult-cempa-colibri",
+    "type": "qcm",
+    "theme": "cultura",
+    "notions": [
+      "cultura-cempasuchil"
+    ],
+    "level": 2,
+    "prompt": "Según la leyenda azteca, ¿en qué animal se transforma el enamorado?",
+    "answer": "En un colibrí",
+    "accept": [],
+    "distractors": [
+      "En un perro",
+      "En una mariposa",
+      "En un jaguar"
+    ],
+    "writable": false,
+    "translation": "Selon la légende aztèque, en quel animal l'amoureux se transforme-t-il ?",
+    "explanation": "Él, transformado en colibrí, se posa sobre la flor.",
+    "source": "doc4-cempasuchil"
+  },
+  {
+    "id": "cult-cempa-flor-sol",
+    "type": "qcm",
+    "theme": "cultura",
+    "notions": [
+      "cultura-cempasuchil"
+    ],
+    "level": 3,
+    "prompt": "Según la leyenda azteca, ¿en qué se convierte la enamorada?",
+    "answer": "En una flor similar al sol",
+    "accept": [],
+    "distractors": [
+      "En un colibrí",
+      "En una estrella",
+      "En una vela"
+    ],
+    "writable": false,
+    "translation": "Selon la légende aztèque, en quoi l'amoureuse est-elle changée ?",
+    "explanation": "Ella es convertida en una flor similar al sol, que se abre en 20 pétalos.",
+    "source": "doc4-cempasuchil"
   }
 ]

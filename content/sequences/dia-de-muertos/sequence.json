@@ -90,6 +90,14 @@
     {
       "id": "cultura-otros",
       "label": "Culture : compléments (à vérifier)"
+    },
+    {
+      "id": "presente-indicativo",
+      "label": "Présent de l'indicatif (réguliers, ser, o→ue, e→i)"
+    },
+    {
+      "id": "cultura-cempasuchil",
+      "label": "Culture : la flor de cempasúchil"
     }
   ],
   "sources": [
@@ -132,6 +140,11 @@
       "id": "estar-gerundio",
       "title": "ESTAR + GERUNDIO",
       "file": "sources/estar gerondif.pdf"
+    },
+    {
+      "id": "doc4-cempasuchil",
+      "title": "Doc4 - CE Cempasúchil (présent de l'indicatif)",
+      "file": "sources/Doc4_CE_Cempasuchil.pdf"
     },
     {
       "id": "prototipo",
